@@ -13,10 +13,11 @@ class UserSerializer(serializers.ModelSerializer):
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password,])
     homepage = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
+    captcha_key = serializers.CharField(write_only=True)
     capcha_value = serializers.CharField(write_only=True)
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'homepage', 'capcha_value')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'homepage','captcha_key', 'capcha_value')
 
     def validate(self, attrs):
         # Validate CAPTCHA
@@ -45,3 +46,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"email": "A user with that email already exists."})
 
         return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('captcha_key')
+        validated_data.pop('captcha_value')
+        password = validated_data.pop('password')
+
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
