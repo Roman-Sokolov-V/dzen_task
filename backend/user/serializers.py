@@ -17,7 +17,17 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     capcha_value = serializers.CharField(write_only=True)
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'homepage','captcha_key', 'capcha_value')
+        fields = (
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'homepage',
+            'captcha_key',
+            'capcha_value',
+            'password',
+        )
 
     def validate(self, attrs):
         # Validate CAPTCHA
