@@ -14,7 +14,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password,])
     homepage = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
     captcha_key = serializers.CharField(write_only=True)
-    capcha_value = serializers.CharField(write_only=True)
+    captcha_value = serializers.CharField(write_only=True)
     class Meta:
         model = User
         fields = (
@@ -25,7 +25,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'last_name',
             'homepage',
             'captcha_key',
-            'capcha_value',
+            'captcha_value',
             'password',
         )
 
@@ -34,18 +34,22 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         captcha_key = attrs.get('captcha_key')
         captcha_value = attrs.get('captcha_value')
 
-        if not captcha_key or not captcha_value:
-            raise serializers.ValidationError("CAPTCHA is required.")
+        # if not captcha_key or not captcha_value:
+        #     raise serializers.ValidationError("CAPTCHA is required.")
+        if not captcha_key:
+            raise serializers.ValidationError({"captcha_key": f"CAPTCHA   key is required..{captcha_key} {captcha_value}"})
+        if not captcha_value:
+            raise serializers.ValidationError({"captcha_value": f"CAPTCHA value is required..{captcha_value} {captcha_key}"})
 
-        stored_value = cache.get(captcha_key)
+        stored_value = cache.get(f"captcha_{captcha_key}")
         if stored_value is None:
-            raise serializers.ValidationError("Invalid or expired CAPTCHA key.")
+            raise serializers.ValidationError( f"Invalid or expired CAPTCHA key.{stored_value}")
 
         if stored_value.lower() != captcha_value.lower():
             raise serializers.ValidationError({"captcha_value": "Invalid CAPTCHA value."})
 
         # Delete the used CAPTCHA from cache to prevent replay
-        cache.delete(captcha_key)
+        cache.delete(f"captcha_{captcha_key}")
 
         # Validate that username and email are unique
         username = attrs.get('username')
@@ -65,3 +69,4 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create(**validated_data)
         user.set_password(password)
         user.save()
+        return user
