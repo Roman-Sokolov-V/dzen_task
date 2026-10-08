@@ -1,7 +1,8 @@
 from django.db import models
 
 from app.settings import AUTH_USER_MODEL
-from .validators import validate_html_tags, validate_txt_file, validate_image_file
+from comments.validators import validate_html_tags, validate_txt_file
+from validators import validate_image_file
 
 
 class Comment(models.Model):
