@@ -17,10 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-from capcha.views import CaptchaGenerateView
+
+from captcha.views import CaptchaGenerateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/user/', include("user.urls")),
-    path('api/captcha/', CaptchaGenerateView.as_view(), name='captcha-generate'),
+    path('api/capcha/', CaptchaGenerateView.as_view(), name='captcha-generate'),
+
 ]
