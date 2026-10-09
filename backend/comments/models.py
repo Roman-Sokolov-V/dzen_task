@@ -1,17 +1,18 @@
 from django.db import models
+from mptt.models import MPTTModel, TreeForeignKey
 
 from app.settings import AUTH_USER_MODEL
 from comments.validators import validate_html_tags, validate_txt_file
 from validators import validate_image_file
 
 
-class Comment(models.Model):
+class Comment(MPTTModel):
     author = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
     content = models.TextField(
         validators=[validate_html_tags],
         help_text="Коментар з дозволеними HTML-тегами: <a>, <code>, <i>, <strong>"
     )
-    parent = models.ForeignKey(
+    parent = TreeForeignKey(
         'self',
         on_delete=models.CASCADE,
         null=True,
@@ -29,15 +30,12 @@ class Comment(models.Model):
     file = models.FileField(
         upload_to='comments/file',
         blank=True,
+        null=True,
         validators=[validate_txt_file],
     )
 
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['-created_at']),
-            models.Index(fields=['parent']),
-        ]
+    class MPTTMeta:
+        order_insertion_by = ['-created_at']
 
     def __str__(self):
         return f"{self.author.username}: {self.content[:50]}"
