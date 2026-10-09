@@ -18,8 +18,8 @@ class CommentSerializer(serializers.ModelSerializer):
             'parent',
             'content',
             'created_at',
-            # 'image',
-            # 'file',
+            'image',
+            'file',
             'level',
             'replies_count',
             'replies'
@@ -52,8 +52,8 @@ class CommentChildSerializer(serializers.ModelSerializer):
             'author',
             'content',
             'created_at',
-            # 'image',
-            # 'file',
+            'image',
+            'file',
             'parent',
             'level',
             'replies_count'

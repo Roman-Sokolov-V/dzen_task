@@ -3,11 +3,16 @@ name = "dzen-task"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "boto3>=1.43.110",
+    "dj-database-url>=3.1.2",
     "django>=6.1.2",
     "django-mptt>=0.18.0",
     "django-rest-framework>=0.1.0",
+    "django-storages>=1.14.6",
     "djangorestframework>=3.18.3",
     "djangorestframework-simplejwt>=5.5.1",
     "djangorestframework-stubs>=3.18.1",
     "pillow>=11.0.0",
+    "psycopg2-binary>=2.9.13",
+    "python-dotenv>=1.2.4",
 ]

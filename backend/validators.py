@@ -3,8 +3,7 @@ from PIL import Image, UnidentifiedImageError
 
 from rest_framework.exceptions import ValidationError
 
-MAX_IMAGE_WIDTH = 320
-MAX_IMAGE_HEIGHT = 240
+from app.settings import MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT
 
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif'}
 
@@ -29,7 +28,8 @@ def validate_image_file(file):
     finally:
         file.seek(0)
 
-    if width > MAX_IMAGE_WIDTH or height > MAX_IMAGE_HEIGHT:
+
+    if not any((width <= MAX_IMAGE_WIDTH and height <= MAX_IMAGE_HEIGHT, width <= MAX_IMAGE_HEIGHT and height <= MAX_IMAGE_WIDTH)):
         raise ValidationError(
             f'Image dimensions must not exceed {MAX_IMAGE_WIDTH}x{MAX_IMAGE_HEIGHT} pixels.'
         )
