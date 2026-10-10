@@ -178,7 +178,10 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
-    'PAGE_SIZE': 3
+    'PAGE_SIZE': 25
 }
-
-MAX_DEPTH_COMMENT = 5
+# Recursion options (how many child comments should be shown)
+# list and retrieve
+MAX_DEPTH_COMMENTS = os.getenv("MAX_DEPTH_COMMENTS", 1) # None - without limits
+# extra action get_replies
+MAX_DEPTH_REPLIES_COMMENT = os.getenv("MAX_DEPTH_COMMENT", 10) # None - without limits
