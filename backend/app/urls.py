@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-
+from debug_toolbar.toolbar import debug_toolbar_urls
 
 from captcha.views import CaptchaGenerateView
 
@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/user/', include("user.urls")),
     path('api/capcha/', CaptchaGenerateView.as_view(), name='captcha-generate'),
     path('api/comments/', include("comments.urls")),
-]
+] + debug_toolbar_urls()
+urlpatterns += [path('silk/', include('silk.urls', namespace='silk'))]

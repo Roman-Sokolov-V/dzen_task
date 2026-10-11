@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9l5h)43p(5qlh1wh%*twstfr*agd@g@a!fa61y6afvkys*$!1l'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -45,16 +45,20 @@ INSTALLED_APPS = [
     'mptt',
     'user',
     'comments',
+    'silk',
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    #'silk.middleware.SilkyMiddleware',
 ]
 
 ROOT_URLCONF = 'app.urls'
@@ -180,8 +184,59 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 25
 }
-# Recursion options (how many child comments should be shown)
-# list and retrieve
-MAX_DEPTH_COMMENTS = os.getenv("MAX_DEPTH_COMMENTS", 1) # None - without limits
-# extra action get_replies
-MAX_DEPTH_REPLIES_COMMENT = os.getenv("MAX_DEPTH_COMMENT", 10) # None - without limits
+
+# Cache configuration using Redis
+# https://docs.djangoproject.com/en/6.1/topics/cache/
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django_redis.cache.RedisCache",
+#         "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
+#         "OPTIONS": {
+#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#             # Mimicking memcache line.
+#             "IGNORE_EXCEPTIONS": True,  # Whether to ignore exceptions.
+#         },
+#         "KEY_PREFIX": "dzen_task",
+#         "TIMEOUT": 300,  # Default timeout: 5 minutes
+#     }
+# }
+
+# Cache middleware configuration (optional, can be enabled later)
+# CACHE_MIDDLEWARE_ALIAS = "default"
+# CACHE_MIDDLEWARE_SECONDS = 600  # 10 minutes
+# CACHE_MIDDLEWARE_KEY_PREFIX = "dzen_task"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    },
+}
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
+
+SILK_ENABLED = False
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}

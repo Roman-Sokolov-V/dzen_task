@@ -66,6 +66,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-debug-toolbar"
+version = "8.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "sqlparse" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/3d/aa093a841f32837311538e7952f5548b1a9c605a5aba5395163fbc54ac59/django_debug_toolbar-8.0.0.tar.gz", hash = "sha256:cae32d3e441e608f39f3f1ca6b3f028c38d5d04d74c98d8ab96d46022dee3163", size = 1239141, upload-time = "2026-09-01T18:27:56.934Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/22/bd/ffd3f171940c58cca7971d1e5b81d6ab67b85a9569fe9d9fe13f7fbd1c99/django_debug_toolbar-8.0.0-py3-none-any.whl", hash = "sha256:329dfd6e1c26d9b4501a5cc69294c8bb734206ccb1bd36e96afc4d14128b630a", size = 437877, upload-time = "2026-09-01T18:27:55.018Z" },
+]
+
+[[package]]
 name = "django-js-asset"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -97,6 +110,20 @@ dependencies = [
     { name = "djangorestframework" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d2/61159bc6efd1bf16adc4a2a48f7ace2080d1f7aef054f606d1857cab490c/django-rest-framework-0.1.0.tar.gz", hash = "sha256:47a8f496fa69e3b6bd79f68dd7a1527d907d6b77f009e9db7cf9bb21cc565e4a", size = 969, upload-time = "2017-07-20T17:14:33.345Z" }
+
+[[package]]
+name = "django-silk"
+version = "5.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "gprof2dot" },
+    { name = "sqlparse" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d5/36/49ce4c5244dc3716b2c70919fb510eb4edc3fc0b36d2f4c096ca6f539949/django_silk-5.6.0.tar.gz", hash = "sha256:bb741fb8af45eba663e8ed832207d16ecd731496313311f6dfae5fe776bed38e", size = 4501978, upload-time = "2026-09-12T05:36:59.31Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/c4/3593fe23bad8bdaef7ad6360fa88cfa70618fd40b0b0935db9130b438429/django_silk-5.6.0-py3-none-any.whl", hash = "sha256:761300bde25b8ce3c381dc0710e82c792c099c0ee6558fad3165dc560a06dd48", size = 1946405, upload-time = "2026-09-12T05:37:10.558Z" },
+]
 
 [[package]]
 name = "django-storages"
@@ -186,8 +213,10 @@ dependencies = [
     { name = "boto3" },
     { name = "dj-database-url" },
     { name = "django" },
+    { name = "django-debug-toolbar" },
     { name = "django-mptt" },
     { name = "django-rest-framework" },
+    { name = "django-silk" },
     { name = "django-storages" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
@@ -202,8 +231,10 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.110" },
     { name = "dj-database-url", specifier = ">=3.1.2" },
     { name = "django", specifier = ">=6.1.2" },
+    { name = "django-debug-toolbar", specifier = ">=8.0.0" },
     { name = "django-mptt", specifier = ">=0.18.0" },
     { name = "django-rest-framework", specifier = ">=0.1.0" },
+    { name = "django-silk", specifier = ">=5.6.0" },
     { name = "django-storages", specifier = ">=1.14.6" },
     { name = "djangorestframework", specifier = ">=3.18.3" },
     { name = "djangorestframework-simplejwt", specifier = ">=5.5.1" },
@@ -211,6 +242,15 @@ requires-dist = [
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.13" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
+]
+
+[[package]]
+name = "gprof2dot"
+version = "2025.4.14"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/fd/cad13fa1f7a463a607176432c4affa33ea162f02f58cc36de1d40d3e6b48/gprof2dot-2025.4.14.tar.gz", hash = "sha256:35743e2d2ca027bf48fa7cba37021aaf4a27beeae1ae8e05a50b55f1f921a6ce", size = 39536, upload-time = "2025-04-14T07:21:45.76Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/71/ed/89d760cb25279109b89eb52975a7b5479700d3114a2421ce735bfb2e7513/gprof2dot-2025.4.14-py3-none-any.whl", hash = "sha256:0742e4c0b4409a5e8777e739388a11e1ed3750be86895655312ea7c20bd0090e", size = 37555, upload-time = "2025-04-14T07:21:43.319Z" },
 ]
 
 [[package]]

@@ -2,68 +2,14 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 
-from app.settings import MAX_DEPTH_REPLIES_COMMENT, MAX_DEPTH_COMMENTS
 from comments.models import Comment
+from comments.validators import validate_txt_file
 from user.serializers import UserSerializer
-
-
-class CommentSerializer(serializers.ModelSerializer):
-    replies = serializers.SerializerMethodField()
-    replies_count = serializers.SerializerMethodField()
-    author = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Comment
-        fields = [
-            'id',
-            'author',
-            'parent',
-            'content',
-            'created_at',
-            'image',
-            'file',
-            'level',
-            'replies_count',
-            'replies'
-        ]
-
-    def get_author(self, obj):
-        """
-        Get the author from the cache, if not in the cache we get it from the database and add it to the cache.
-        Return the author (User)
-        """
-        if not obj.author_id:
-            return None
-        users_cache = self.context.setdefault('users_cache', {})
-        if obj.author_id not in users_cache:
-            users_cache[obj.author_id] = UserSerializer(obj.author).data
-        return users_cache[obj.author_id]
-
-    def get_replies_count(self, obj):
-        """We get the total number of all descendants (MPTT does this without an additional SQL query)"""
-        return obj.get_descendant_count()
-
-    def get_replies(self, obj, max_depth_comment=MAX_DEPTH_COMMENTS):
-        children = obj.get_children()
-        if max_depth_comment:
-            # Обмежуємо глибину рекурсії
-            max_depth = self.context.get('max_depth', max_depth_comment)
-            if max_depth <= 1:
-                return []
-            next_context = self.context.copy()
-            next_context['max_depth'] = max_depth - 1
-            # Отримуємо дітей поточного вузла
-
-            return CommentTreeChildSerializer(children, many=True, context=next_context).data
-        return CommentTreeChildSerializer(children, many=True, context=self.context).data
+from utils import resize_image
 
 
 
-
-class CommentChildSerializer(serializers.ModelSerializer):
-    """Спрощений серіалайзер для відповідей, щоб не робити рекурсію далі 1-го рівня."""
-    replies_count = serializers.SerializerMethodField()
-
+class BasicCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
@@ -73,19 +19,7 @@ class CommentChildSerializer(serializers.ModelSerializer):
             'created_at',
             'image',
             'file',
-            'parent',
-            'level',
-            'replies_count'
         ]
-
-    def get_replies_count(self, obj):
-        return obj.get_descendant_count()
-
-
-class CommentTreeChildSerializer(CommentSerializer):
-    def get_replies(self, obj, max_depth_comment=MAX_DEPTH_REPLIES_COMMENT):
-        return super().get_replies(obj, max_depth_comment)
-
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -97,6 +31,18 @@ class CommentCreateSerializer(serializers.ModelSerializer):
             'file',
             'parent',
         ]
+
+    def validate_image(self, image):
+        if not image:
+            return image
+        processed_image = resize_image(image)
+        return processed_image
+
+    def validate_file(self, file):
+        if not file:
+            return file
+        validate_txt_file(file)
+        return file
 
 
 class CommentRootListSerializer(serializers.ModelSerializer):
@@ -110,3 +56,63 @@ class CommentRootListSerializer(serializers.ModelSerializer):
             'file',
             "created_at"
         ]
+
+
+class CommentFlatSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    replies_count = serializers.IntegerField(source='get_descendant_count', read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id',
+            'author',
+            'parent',
+            'content',
+            'created_at',
+            'image',
+            'file',
+            'level',
+            'replies_count',
+        ]
+
+
+class CommentWithDescendantsSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    replies = serializers.SerializerMethodField()
+    replies_count = serializers.IntegerField(source='get_descendant_count', read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = [
+            'id',
+            'author',
+            'parent',
+            'content',
+            'created_at',
+            'image',
+            'file',
+            'level',
+            'replies_count',
+            'replies',
+        ]
+
+    def get_replies(self, obj):
+        # 1. Отримуємо всіх нащадків одним запитом
+        descendants = obj.get_descendants().select_related('author').order_by('tree_id', 'lft')
+
+        comment_map = {}
+        for child in descendants:
+            data = CommentFlatSerializer(child, context=self.context).data
+            data['replies'] = []  # Додаємо порожній список для майбутніх дітей
+            comment_map[child.id] = data
+
+        tree = []
+        for child in descendants:
+            node = comment_map[child.id]
+            if child.parent_id == obj.id: # якщо вузол є безпосереднім нащадком
+                tree.append(node)
+            elif child.parent_id in comment_map:  # якщо вузол є відповіддю на інший дочірній елемент (внука, правнука тощо)
+                comment_map[child.parent_id]['replies'].append(node)
+        return tree
+

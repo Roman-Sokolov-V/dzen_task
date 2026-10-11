@@ -39,4 +39,4 @@ class Comment(MPTTModel):
         order_insertion_by = ['-created_at']
 
     def __str__(self):
-        return f"{self.author.username}: {self.content[:50]}"
+        return f"Comment #{self.id} (Author ID: {self.author_id})"
