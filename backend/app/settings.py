@@ -185,27 +185,6 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 25
 }
 
-# Cache configuration using Redis
-# https://docs.djangoproject.com/en/6.1/topics/cache/
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django_redis.cache.RedisCache",
-#         "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/1"),
-#         "OPTIONS": {
-#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#             # Mimicking memcache line.
-#             "IGNORE_EXCEPTIONS": True,  # Whether to ignore exceptions.
-#         },
-#         "KEY_PREFIX": "dzen_task",
-#         "TIMEOUT": 300,  # Default timeout: 5 minutes
-#     }
-# }
-
-# Cache middleware configuration (optional, can be enabled later)
-# CACHE_MIDDLEWARE_ALIAS = "default"
-# CACHE_MIDDLEWARE_SECONDS = 600  # 10 minutes
-# CACHE_MIDDLEWARE_KEY_PREFIX = "dzen_task"
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -222,9 +201,15 @@ LOGGING = {
         },
     },
     "loggers": {
+        # Логер для SQL-запитів
         "django.db.backends": {
             "handlers": ["console"],
             "level": "DEBUG",
+        },
+        # ЗАГАЛЬНИЙ ЛОГЕР (logger = logging.getLogger(__name__))
+        "": {
+            "handlers": ["console"],
+            "level": "INFO",
         },
     },
 }
@@ -235,8 +220,23 @@ INTERNAL_IPS = [
 
 SILK_ENABLED = False
 
+# For local mem cache
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+#     }
+# }
+
+# In Docker redis cache
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://cache:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+        },
+        "KEY_PREFIX": "dzen_task",
+        "TIMEOUT": 300,
     }
 }

@@ -8,7 +8,9 @@ from comments.models import Comment
 from comments.serializers import (
     CommentCreateSerializer, CommentRootListSerializer, CommentWithDescendantsSerializer, BasicCommentSerializer
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
@@ -60,7 +62,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         cache_key = f"comment_tree_{pk}"
         cached_data = cache.get(cache_key)
         if cached_data is not None:
-            print("Cache found")
+            logger.info("##############################################################")
+            logger.info("-------------------------Cache found--------------------------")
             return Response(cached_data)
 
         comment = self.get_object()

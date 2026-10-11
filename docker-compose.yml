@@ -1,0 +1,31 @@
+services:
+  web-app:
+    build:
+      context: backend
+    ports:
+      - "8000:8000"
+    entrypoint: ["./entrypoint.sh"]
+    environment:
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+
+  cache:
+    image: redis:8.8.3-alpine3.23
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+volumes:
+  cache:
+    driver: local
