@@ -53,27 +53,64 @@ def resize_image(
 
         # 3. Перевірка, чи потрібно взагалі зменшувати
         if img_max_side > allowed_max_side or img_min_side > allowed_min_side:
-            # thumbnail автоматично адаптується під альбомну/портретну орієнтацію
-            img.thumbnail(max_size, Image.Resampling.LANCZOS)
-
-            buffer = BytesIO()
-            save_kwargs = {"format": img_format, "optimize": True}
-
-            # Зберігаємо підтримку анімації для GIF
+            # Handle animated GIF separately
             if img_format == "GIF" and getattr(img, "is_animated", False):
-                save_kwargs["save_all"] = True
+                frames = []
+                try:
+                    while True:
+                        # Copy and resize the current frame
+                        frame = img.copy()
+                        frame.thumbnail(max_size, Image.Resampling.LANCZOS)
+                        frames.append(frame)
+                        img.seek(img.tell() + 1)
+                except EOFError:
+                    pass
 
-            img.save(buffer, **save_kwargs)
-            buffer.seek(0)
+                buffer = BytesIO()
+                # Get duration and loop from the first frame's info
+                duration = img.info.get('duration', 100)
+                loop = img.info.get('loop', 0)
+                save_kwargs = {
+                    "format": img_format,
+                    "save_all": True,
+                    "append_images": frames[1:],
+                    "duration": duration,
+                    "loop": loop,
+                    "optimize": True,
+                }
+                frames[0].save(buffer, **save_kwargs)
+                buffer.seek(0)
 
-            # Отримуємо оригінальну назву файлу
-            file_name = (
-                image.name.split("/")[-1] if hasattr(image, "name") else "upload_image"
-            )
+                # Отримуємо оригінальну назву файлу
+                file_name = (
+                    image.name.split("/")[-1] if hasattr(image, "name") else "upload_image"
+                )
 
-            return ContentFile(buffer.read(), name=file_name)
+                return ContentFile(buffer.read(), name=file_name)
+            else:
+                # Non-animated image or non-GIF
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+                buffer = BytesIO()
+                save_kwargs = {"format": img_format, "optimize": True}
+
+                # Зберігаємо підтримку анімації для GIF (но тут немає анімації)
+                if img_format == "GIF" and getattr(img, "is_animated", False):
+                    save_kwargs["save_all"] = True
+
+                img.save(buffer, **save_kwargs)
+                buffer.seek(0)
+
+                # Отримуємо оригінальну назву файлу
+                file_name = (
+                    image.name.split("/")[-1] if hasattr(image, "name") else "upload_image"
+                )
+
+                return ContentFile(buffer.read(), name=file_name)
 
         # Якщо розміри в межах норми — повертаємо оригінал без змін
+        # Reset the file pointer to the beginning so the caller can read the file.
+        image.seek(0)
         return image
 
     except UnidentifiedImageError, OSError:

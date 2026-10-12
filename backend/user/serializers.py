@@ -7,12 +7,20 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user representation.
+    Includes id, username, email, first name, last name, and homepage.
+    """
     class Meta:
         model = get_user_model()
         fields = ("id", "username", "email", "first_name", "last_name", "homepage")
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user registration.
+    Includes write-only fields for password, homepage, captcha_key, and captcha_value.
+    """
     password = serializers.CharField(
         write_only=True,
         required=True,
@@ -42,6 +50,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
+        """
+        Validate the registration data.
+        Includes CAPTCHA validation (currently commented out) and uniqueness checks for username and email.
+        """
         # TODO return code below
         # # Validate CAPTCHA
         # captcha_key = attrs.get('captcha_key')
@@ -79,6 +91,9 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """
+        Create a new user instance with the validated data.
+        """
         validated_data.pop("captcha_key")
         validated_data.pop("captcha_value")
         password = validated_data.pop("password")
@@ -89,8 +104,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
+        """
+        Update an existing user instance with the validated data.
+        """
         password = validated_data.pop("password")
         user = super().update(instance, validated_data)
         if password:
             user.set_password(password)
             user.save()
+        return user

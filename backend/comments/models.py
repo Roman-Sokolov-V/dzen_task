@@ -11,7 +11,7 @@ class Comment(MPTTModel):
     author = models.ForeignKey(AUTH_USER_MODEL, on_delete=models.CASCADE)
     content = models.TextField(
         validators=[validate_html_tags],
-        help_text="Коментар з дозволеними HTML-тегами: <a>, <code>, <i>, <strong>",
+        help_text="Comment with allowed HTML tags: <a>, <code>, <i>, <strong>",
     )
     parent = TreeForeignKey(
         "self",

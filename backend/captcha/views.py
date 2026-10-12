@@ -22,11 +22,11 @@ class CaptchaGenerateView(APIView):
 
         captcha_key = str(uuid.uuid4())
 
-        # Зберігаємо результат у кеш на 5 хвилин (300 секунд)
+        # Store the result in cache for 5 minutes (300 seconds)
         cache.set(
-            f"captcha_{captcha_key}", answer, timeout=3000
-        )  # TODO  CHANGE TIMEOUT
+            f"captcha_{captcha_key}", answer, timeout=300
+        )  # Fixed timeout to 300 seconds (5 minutes)
 
         return Response(
-            {"captcha_key": captcha_key, "question": f"Скільки буде {num1} + {num2}?"}
+            {"captcha_key": captcha_key, "question": f"What is {num1} + {num2}?"}
         )
