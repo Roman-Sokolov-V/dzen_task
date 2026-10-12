@@ -11,6 +11,7 @@ class CaptchaGenerateView(APIView):
     """
     Generates a mathematical captcha and stores the answer in the cache.
     """
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -22,9 +23,10 @@ class CaptchaGenerateView(APIView):
         captcha_key = str(uuid.uuid4())
 
         # Зберігаємо результат у кеш на 5 хвилин (300 секунд)
-        cache.set(f"captcha_{captcha_key}", answer, timeout=3000) # TODO  CHANGE TIMEOUT
+        cache.set(
+            f"captcha_{captcha_key}", answer, timeout=3000
+        )  # TODO  CHANGE TIMEOUT
 
-        return Response({
-            "captcha_key": captcha_key,
-            "question": f"Скільки буде {num1} + {num2}?"
-        })
+        return Response(
+            {"captcha_key": captcha_key, "question": f"Скільки буде {num1} + {num2}?"}
+        )

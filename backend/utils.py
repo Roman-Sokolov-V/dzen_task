@@ -14,19 +14,20 @@ class UniqueFilePath:
     A class-generator of unique paths for file uploads.
     Using @deconstructible is mandatory for correct operation of Django migrations.
     """
+
     def __init__(self, subfolder):
         self.subfolder = subfolder
 
     def __call__(self, instance, filename):
-        ext = filename.split('.')[-1]
+        ext = filename.split(".")[-1]
         unique_filename = f"{uuid.uuid4().hex}.{ext}"
         return os.path.join(self.subfolder, unique_filename)
 
 
 def resize_image(
-        image,
-        formats: tuple[str, ...] = ("JPEG", "PNG", "GIF"),
-        max_size: tuple[int, int] = (320, 240)
+    image,
+    formats: tuple[str, ...] = ("JPEG", "PNG", "GIF"),
+    max_size: tuple[int, int] = (320, 240),
 ):
     """
     Returns an image file, resizing it according to max_size (320x240),
@@ -56,23 +57,25 @@ def resize_image(
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
 
             buffer = BytesIO()
-            save_kwargs = {'format': img_format, 'optimize': True}
+            save_kwargs = {"format": img_format, "optimize": True}
 
             # Зберігаємо підтримку анімації для GIF
-            if img_format == 'GIF' and getattr(img, 'is_animated', False):
-                save_kwargs['save_all'] = True
+            if img_format == "GIF" and getattr(img, "is_animated", False):
+                save_kwargs["save_all"] = True
 
             img.save(buffer, **save_kwargs)
             buffer.seek(0)
 
             # Отримуємо оригінальну назву файлу
-            file_name = image.name.split('/')[-1] if hasattr(image, 'name') else 'upload_image'
+            file_name = (
+                image.name.split("/")[-1] if hasattr(image, "name") else "upload_image"
+            )
 
             return ContentFile(buffer.read(), name=file_name)
 
         # Якщо розміри в межах норми — повертаємо оригінал без змін
         return image
 
-    except (UnidentifiedImageError, OSError):
+    except UnidentifiedImageError, OSError:
         # Якщо файл пошкоджений або це не справжня картинка
         raise ValidationError("The uploaded file is not a valid image or is corrupted.")

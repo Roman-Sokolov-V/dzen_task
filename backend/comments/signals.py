@@ -16,4 +16,6 @@ def handle_signal_comment_creation(sender, instance, created, **kwargs):
                 message = f"Yore comment: {instance.parent.content} \n Reply: {instance.content} \n url: <фронд url на цей коментарій>"  # TODO <фронд url на цей коментарій> - input real url
                 from_email = DEFAULT_FROM_EMAIL
                 to_email = instance.parent.author.email
-                task_send_reply_notification.delay(subject, message, from_email, to_email)
+                task_send_reply_notification.delay(
+                    subject, message, from_email, to_email
+                )

@@ -8,28 +8,28 @@ from user.serializers import UserSerializer
 from utils import resize_image
 
 
-
 class BasicCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'id',
-            'author',
-            'content',
-            'created_at',
-            'image',
-            'file',
+            "id",
+            "author",
+            "content",
+            "created_at",
+            "image",
+            "file",
         ]
+
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'author',
-            'content',
-            'image',
-            'file',
-            'parent',
+            "author",
+            "content",
+            "image",
+            "file",
+            "parent",
         ]
 
     def validate_image(self, image):
@@ -46,73 +46,75 @@ class CommentCreateSerializer(serializers.ModelSerializer):
 
 
 class CommentRootListSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+
     class Meta:
         model = Comment
-        fields = [
-            'author',
-            'content',
-            'image',
-            'file',
-            "created_at"
-        ]
+        fields = ["author", "content", "image", "file", "created_at"]
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
-    replies_count = serializers.IntegerField(source='get_descendant_count', read_only=True)
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    replies_count = serializers.IntegerField(
+        source="get_descendant_count", read_only=True
+    )
 
     class Meta:
         model = Comment
         fields = [
-            'id',
-            'author',
-            'parent',
-            'content',
-            'created_at',
-            'image',
-            'file',
-            'level',
-            'replies_count',
+            "id",
+            "author",
+            "parent",
+            "content",
+            "created_at",
+            "image",
+            "file",
+            "level",
+            "replies_count",
         ]
 
 
 class CommentWithDescendantsSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     replies = serializers.SerializerMethodField()
-    replies_count = serializers.IntegerField(source='get_descendant_count', read_only=True)
+    replies_count = serializers.IntegerField(
+        source="get_descendant_count", read_only=True
+    )
 
     class Meta:
         model = Comment
         fields = [
-            'id',
-            'author',
-            'parent',
-            'content',
-            'created_at',
-            'image',
-            'file',
-            'level',
-            'replies_count',
-            'replies',
+            "id",
+            "author",
+            "parent",
+            "content",
+            "created_at",
+            "image",
+            "file",
+            "level",
+            "replies_count",
+            "replies",
         ]
 
     def get_replies(self, obj):
         # 1. Отримуємо всіх нащадків одним запитом
-        descendants = obj.get_descendants().select_related('author').order_by('tree_id', 'lft')
+        descendants = (
+            obj.get_descendants().select_related("author").order_by("tree_id", "lft")
+        )
 
         comment_map = {}
         for child in descendants:
             data = CommentFlatSerializer(child, context=self.context).data
-            data['replies'] = []  # Додаємо порожній список для майбутніх дітей
+            data["replies"] = []  # Додаємо порожній список для майбутніх дітей
             comment_map[child.id] = data
 
         tree = []
         for child in descendants:
             node = comment_map[child.id]
-            if child.parent_id == obj.id: # якщо вузол є безпосереднім нащадком
+            if child.parent_id == obj.id:  # якщо вузол є безпосереднім нащадком
                 tree.append(node)
-            elif child.parent_id in comment_map:  # якщо вузол є відповіддю на інший дочірній елемент (внука, правнука тощо)
-                comment_map[child.parent_id]['replies'].append(node)
+            elif (
+                child.parent_id in comment_map
+            ):  # якщо вузол є відповіддю на інший дочірній елемент (внука, правнука тощо)
+                comment_map[child.parent_id]["replies"].append(node)
         return tree
-

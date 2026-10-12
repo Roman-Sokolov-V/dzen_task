@@ -6,11 +6,15 @@ from rest_framework.response import Response
 
 from comments.models import Comment
 from comments.serializers import (
-    CommentCreateSerializer, CommentRootListSerializer, CommentWithDescendantsSerializer, BasicCommentSerializer
+    CommentCreateSerializer,
+    CommentRootListSerializer,
+    CommentWithDescendantsSerializer,
+    BasicCommentSerializer,
 )
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
@@ -18,6 +22,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     retrieve - повертає окремий коментар
     tree -  повертає окремий коментар з древом відповідей
     """
+
     queryset = Comment.objects.all()
     permission_classes = (AllowAny,)
     authentication_classes = []
@@ -28,9 +33,9 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = self.queryset
         if self.action == "list":
-            return Comment.objects.root_nodes().select_related('author')
+            return Comment.objects.root_nodes().select_related("author")
         if self.action == "retrieve":
-            return queryset.select_related('author')
+            return queryset.select_related("author")
         return queryset
 
     def get_serializer_class(self):
@@ -56,18 +61,24 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(methods=['get'], detail=True, url_path='tree')
+    @action(methods=["get"], detail=True, url_path="tree")
     def tree(self, request, pk=None):
         """Returns the comment and all replies in the form of a tree (Cached)"""
         cache_key = f"comment_tree_{pk}"
         cached_data = cache.get(cache_key)
         if cached_data is not None:
-            logger.info("##############################################################")
-            logger.info("-------------------------Cache found--------------------------")
+            logger.info(
+                "##############################################################"
+            )
+            logger.info(
+                "-------------------------Cache found--------------------------"
+            )
             return Response(cached_data)
 
         comment = self.get_object()
-        serializer = self.get_serializer(comment, many=False, context={'request': request})
+        serializer = self.get_serializer(
+            comment, many=False, context={"request": request}
+        )
         data = serializer.data
         cache.set(cache_key, data, timeout=900)
         return Response(data)
@@ -114,4 +125,3 @@ class CommentViewSet(viewsets.ModelViewSet):
 #     permission_classes = (AllowAny,)
 #     authentication_classes = []
 #     serializer_class = BasicCommentSerializer
-

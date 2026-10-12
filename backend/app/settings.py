@@ -9,10 +9,14 @@ https://docs.djangoproject.com/en/6.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
+
 # import os
 import sys
 
 from .dev_settings import *
-TESTING = ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
+
+TESTING = (
+    ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
+)
 if TESTING:
     from .test_settings import *

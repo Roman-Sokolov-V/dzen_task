@@ -5,29 +5,40 @@ from django.core.cache import cache
 
 User = get_user_model()
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'homepage')
+        fields = ("id", "username", "email", "first_name", "last_name", "homepage")
+
 
 class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password,])
-    homepage = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[
+            validate_password,
+        ],
+    )
+    homepage = serializers.URLField(
+        write_only=True, required=False, allow_null=True, allow_blank=True
+    )
     captcha_key = serializers.CharField(write_only=True)
     captcha_value = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = (
-            'id',
-            'username',
-            'email',
-            'first_name',
-            'last_name',
-            'homepage',
-            'captcha_key',
-            'captcha_value',
-            'password',
-            'avatar',
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "homepage",
+            "captcha_key",
+            "captcha_value",
+            "password",
+            "avatar",
         )
 
     def validate(self, attrs):
@@ -54,19 +65,23 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # cache.delete(f"captcha_{captcha_key}")
 
         # Validate that username and email are unique
-        username = attrs.get('username')
-        email = attrs.get('email')
+        username = attrs.get("username")
+        email = attrs.get("email")
         if User.objects.filter(username=username).exists():
-            raise serializers.ValidationError({"username": "A user with that username already exists."})
+            raise serializers.ValidationError(
+                {"username": "A user with that username already exists."}
+            )
         if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError({"email": "A user with that email already exists."})
+            raise serializers.ValidationError(
+                {"email": "A user with that email already exists."}
+            )
 
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('captcha_key')
-        validated_data.pop('captcha_value')
-        password = validated_data.pop('password')
+        validated_data.pop("captcha_key")
+        validated_data.pop("captcha_value")
+        password = validated_data.pop("password")
 
         user = User.objects.create(**validated_data)
         user.set_password(password)
