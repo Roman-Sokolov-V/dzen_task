@@ -5,15 +5,17 @@ services:
     ports:
       - "8000:8000"
     entrypoint: ["./entrypoint.sh"]
+    env_file:
+      - backend/.env
     environment:
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
 
-  cache:
+  redis:
     image: redis:8.8.3-alpine3.23
     restart: always
-    env_file:
-      - .env
+#    env_file:
+#      - .env
     ports:
       - "6379:6379"
     command: redis-server --save 20 1 --loglevel warning
@@ -24,6 +26,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  celery:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    command: "celery -A app worker -l info"
+    depends_on:
+      - web-app
+      - redis
+    restart: on-failure
+    env_file:
+      - backend/.env
 
 
 volumes:
