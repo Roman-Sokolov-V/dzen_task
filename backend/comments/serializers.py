@@ -22,9 +22,13 @@ class BasicCommentSerializer(serializers.ModelSerializer):
 
 
 class CommentCreateSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+
     class Meta:
         model = Comment
         fields = [
+            "id",
             "author",
             "content",
             "image",
@@ -43,6 +47,7 @@ class CommentCreateSerializer(serializers.ModelSerializer):
             return file
         validate_txt_file(file)
         return file
+
 
 
 class CommentRootListSerializer(serializers.ModelSerializer):

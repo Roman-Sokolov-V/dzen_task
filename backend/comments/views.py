@@ -1,7 +1,7 @@
 from django.core.cache import cache
-from rest_framework import viewsets, generics, filters
+from rest_framework import viewsets, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 
 from comments.models import Comment
@@ -12,6 +12,8 @@ from comments.serializers import (
     BasicCommentSerializer,
 )
 import logging
+
+from comments.permitions import IsOwner, IsOwnerOrAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +26,24 @@ class CommentViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Comment.objects.all()
-    permission_classes = (AllowAny,)
-    authentication_classes = []
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ("author__username", "created_at", "author__email")
     ordering = ("-created_at",)
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve", "tree"]:
+            return [
+                AllowAny(),
+            ]
+        if self.action == "create":
+            return [
+                IsAuthenticated(),
+            ]
+        if self.action in ("update", "partial_update"):
+            return [IsOwner()]
+        if self.action == "destroy":
+            return [IsOwnerOrAdmin()]
+        return [IsAdminUser()]
 
     def get_queryset(self):
         queryset = self.queryset
@@ -93,7 +108,7 @@ class CommentViewSet(viewsets.ModelViewSet):
             cache.delete(f"comment_tree_{ancestor.id}")
 
     def perform_create(self, serializer):
-        comment = serializer.save()
+        comment = serializer.save(author=self.request.user)
         self._invalidate_comment_tree_cache(comment)
 
     def perform_update(self, serializer):
