@@ -14,12 +14,14 @@ class BasicCommentSerializer(serializers.ModelSerializer):
     Serializer for basic comment representation.
     Includes id, author, content, creation date, image, and file.
     """
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             "id",
             "author",
+            "avatar",
             "content",
             "created_at",
             "image",
@@ -34,12 +36,14 @@ class CommentCreateSerializer(serializers.ModelSerializer):
     """
     id = serializers.IntegerField(read_only=True)
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
 
     class Meta:
         model = Comment
         fields = [
             "id",
             "author",
+            "avatar",
             "content",
             "image",
             "file",
@@ -73,12 +77,13 @@ class CommentRootListSerializer(serializers.ModelSerializer):
     Shows the author's username.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
     email = serializers.EmailField(source="author.email", read_only=True)
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "email", "content", "image", "file", "created_at"]
-        read_only_fields = ["id", "author", "email", "content", "image", "file", "created_at"]
+        fields = ["id", "author", "avatar", "email", "content", "image", "file", "created_at"]
+        read_only_fields = ["id", "author", "avatar", "email", "content", "image", "file", "created_at"]
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):
@@ -87,6 +92,7 @@ class CommentFlatSerializer(serializers.ModelSerializer):
     Includes author's username and reply count.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
     replies_count = serializers.IntegerField(
         source="get_descendant_count", read_only=True
     )
@@ -96,6 +102,7 @@ class CommentFlatSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "author",
+            "avatar",
             "parent",
             "content",
             "created_at",
@@ -112,6 +119,7 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
     Використовує кешування в Redis на рівні окремого ID коментаря.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
     replies = serializers.SerializerMethodField()
     replies_count = serializers.IntegerField(
         source="get_descendant_count", read_only=True
@@ -122,6 +130,7 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "author",
+            "avatar",
             "parent",
             "content",
             "created_at",
@@ -178,13 +187,14 @@ class CommentActivitySerializer(serializers.ModelSerializer):
     Includes id, author, content, creation date, image, file, and parent.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    avatar = serializers.ImageField(source="author.avatar", read_only=True)
     image = serializers.SerializerMethodField()
     file = serializers.SerializerMethodField()
     root_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "content", "created_at", "image", "file", "parent", "root_id"]
+        fields = ["id", "author", "avatar", "content", "created_at", "image", "file", "parent", "root_id"]
 
     def get_image(self, obj):
         if obj.image:
@@ -198,4 +208,3 @@ class CommentActivitySerializer(serializers.ModelSerializer):
 
     def get_root_id(self, obj):
         return obj.get_root().id
-

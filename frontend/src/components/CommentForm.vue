@@ -1,18 +1,18 @@
 <template>
   <div class="comment-form">
     <form class="comment-form-layout" @submit.prevent="onSubmit">
-      <label class="visually-hidden" :for="contentInputId">Вміст коментаря</label>
-      <textarea :id="contentInputId" v-model="content" placeholder="Напишіть коментар..." required></textarea>
+      <label class="visually-hidden" :for="contentInputId">Comment text</label>
+      <textarea :id="contentInputId" v-model="content" placeholder="Write a comment..." required></textarea>
       <div class="comment-form-controls">
         <label class="attachment-button">
-          Додати файл
+          Add text file
           <input type="file" accept=".txt" @change="onFileChange" />
         </label>
         <label class="attachment-button">
-          Додати зображення
+          Add image
           <input type="file" accept="image/*" @change="onImageChange" />
         </label>
-        <button type="submit" class="submit-button">Надіслати</button>
+        <button type="submit" class="submit-button">Submit</button>
       </div>
     </form>
     <div class="selected-files" aria-live="polite">

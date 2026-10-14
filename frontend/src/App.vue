@@ -2,25 +2,25 @@
   <div id="app">
     <header class="app-header">
       <div class="header-content">
-        <span class="app-title">Коментарі</span>
+        <span class="app-title">Comments</span>
         <div class="sort-controls">
-          <label for="sortSelect">Сортування:</label>
+          <label for="sortSelect">Sort by:</label>
           <select id="sortSelect" v-model="sortOrder" @change="changeSortOrder(sortOrder)">
-            <option value="-created_at">Новіші спочатку</option>
-            <option value="created_at">Старіші спочатку</option>
-            <option value="author__username">Автор (А-Я)</option>
-            <option value="-author__username">Автор (Я-А)</option>
-            <option value="author__email">Email (А-Я)</option>
-            <option value="-author__email">Email (Я-А)</option>
+            <option value="-created_at">Newest first</option>
+            <option value="created_at">Oldest first</option>
+            <option value="author__username">Author (A–Z)</option>
+            <option value="-author__username">Author (Z–A)</option>
+            <option value="author__email">Email (A–Z)</option>
+            <option value="-author__email">Email (Z–A)</option>
           </select>
         </div>
         <div class="auth-actions" v-if="!token">
-          <button class="btn" @click="showLoginModal = true">Увійти</button>
-          <button class="btn" @click="showRegisterModal = true">Зареєструватися</button>
+          <button class="btn" @click="showLoginModal = true">Log in</button>
+          <button class="btn" @click="showRegisterModal = true">Sign up</button>
         </div>
         <div class="user-info" v-else>
           <span>{{ username }}</span>
-          <button class="btn" @click="logout">Вийти</button>
+          <button class="btn" @click="logout">Log out</button>
         </div>
       </div>
     </header>
@@ -28,8 +28,8 @@
     <!-- New comments banner -->
     <div v-if="showNewCommentsBanner" class="new-comments-banner">
       <div class="banner-content">
-        З'явилися нові коментарі ({{ bufferedComments.length }})
-        <button class="btn btn-sm" @click="showBufferedComments()">Показати нові коментарі</button>
+        New comments ({{ bufferedComments.length }})
+        <button class="btn btn-sm" @click="showBufferedComments()">Show new comments</button>
       </div>
     </div>
 
@@ -41,9 +41,9 @@
           class="add-comment-button"
           @click="showRootCommentForm = !showRootCommentForm"
         >
-          {{ showRootCommentForm ? 'Закрити форму' : 'Додати коментар' }}
+          {{ showRootCommentForm ? 'Close form' : 'Add new comment' }}
         </button>
-        <p v-else class="auth-required-inline">Увійдіть, щоб залишити коментар.</p>
+        <p v-else class="auth-required-inline">Log in to leave a comment.</p>
       </div>
       <CommentForm
         v-if="token && showRootCommentForm"
@@ -65,31 +65,31 @@
     </section>
     <!-- Load more button -->
     <div v-if="hasMore && !loadingMore" class="load-more-container">
-      <button class="btn btn-primary" @click="loadNextPage">Завантажити більше</button>
+      <button class="btn btn-primary" @click="loadNextPage">Load more</button>
     </div>
     <div v-else-if="loadingMore" class="load-more-container">
-      <button class="btn btn-primary" disabled>Завантаження...</button>
+      <button class="btn btn-primary" disabled>Loading...</button>
     </div>
     <div v-else-if="!hasMore" class="load-more-container">
-      <button class="btn btn-primary" disabled>Більше коментарів немає</button>
+      <button class="btn btn-primary" disabled>No more comments</button>
     </div>
     <!-- Login Modal -->
     <div v-if="showLoginModal" class="modal-overlay" @click.self="showLoginModal = false">
       <div class="modal">
-        <h2>Увійти</h2>
+        <h2>Log in</h2>
         <form @submit.prevent="handleLogin">
           <div class="form-group">
-            <label>Ім'я користувача:</label>
+            <label>Username:</label>
             <input type="text" v-model="login.username" required />
           </div>
           <div class="form-group">
-            <label>Пароль:</label>
+            <label>Password:</label>
             <input type="password" v-model="login.password" required />
           </div>
           <div class="form-group" v-if="loginError">
             <p class="error">{{ loginError }}</p>
           </div>
-          <button type="submit" :disabled="loginLoading">Увійти</button>
+          <button type="submit" :disabled="loginLoading">Log in</button>
         </form>
       </div>
     </div>
@@ -97,28 +97,28 @@
     <!-- Register Modal -->
     <div v-if="showRegisterModal" class="modal-overlay" @click.self="showRegisterModal = false">
       <div class="modal">
-        <h2>Реєстрація</h2>
+        <h2>Sign up</h2>
         <form @submit.prevent="handleRegister">
           <div class="form-group">
-            <label>Ім'я користувача:</label>
+            <label>Username:</label>
             <input type="text" v-model="register.username" required />
           </div>
           <div class="form-group">
-            <label>Електронна пошта:</label>
+            <label>Email:</label>
             <input type="email" v-model="register.email" required />
           </div>
           <div class="form-group">
-            <label>Пароль:</label>
+            <label>Password:</label>
             <input type="password" v-model="register.password" required />
           </div>
           <div class="form-group">
-            <label>Повторіть пароль:</label>
+            <label>Confirm password:</label>
             <input type="password" v-model="register.password2" required />
           </div>
           <div class="form-group" v-if="registerError">
             <p class="error">{{ registerError }}</p>
           </div>
-          <button type="submit" :disabled="registerLoading">Зареєструватися</button>
+          <button type="submit" :disabled="registerLoading">Sign up</button>
         </form>
       </div>
     </div>
@@ -188,7 +188,7 @@ export default {
       }
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
-        return payload.username || payload.user_id || 'Користувач'
+        return payload.username || payload.user_id || 'User'
       } catch (e) {
         return ''
       }
@@ -546,7 +546,7 @@ export default {
       })
       .catch(err => {
         console.error('Login error:', err)
-        this.loginError = err.detail || 'Помилка входу'
+        this.loginError = err.detail || 'Login failed'
       })
       .finally(() => {
         this.loginLoading = false
@@ -554,7 +554,7 @@ export default {
     },
     handleRegister() {
       if (this.register.password !== this.register.password2) {
-        this.registerError = 'Паролі не співпадають'
+        this.registerError = 'Passwords do not match'
         return
       }
       this.registerLoading = true
@@ -589,13 +589,13 @@ export default {
         this.register.password = ''
         this.register.password2 = ''
         // Show success message and prompt to login
-        alert('Реєстрація успішна! Тепер ви можете увійти.')
+        alert('Registration successful! You can now log in.')
         this.showLoginModal = true
         this.login.username = username // pre-fill username
       })
       .catch(err => {
         console.error('Registration error:', err)
-        this.registerError = err.detail || 'Помилка реєстрації'
+        this.registerError = err.detail || 'Registration failed'
       })
       .finally(() => {
         this.registerLoading = false
@@ -634,6 +634,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 2rem;
+  width: 100%;
 }
 .app-title {
   font-size: 1.5rem;
@@ -643,11 +644,13 @@ export default {
 .auth-actions {
   display: flex;
   gap: 0.5rem;
+  margin-left: auto;
 }
 .user-info {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-left: auto;
 }
 .btn {
   padding: 0.5rem 1rem;

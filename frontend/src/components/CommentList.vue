@@ -3,18 +3,39 @@
     <table class="comment-table">
       <thead>
         <tr>
-          <th scope="col">Автор</th>
-          <th scope="col">Дата</th>
-          <th scope="col">Коментар</th>
-          <th scope="col">Зображення</th>
-          <th scope="col">Файл</th>
-          <th scope="col">Дії</th>
+          <th scope="col">Author</th>
+          <th scope="col">Date</th>
+          <th scope="col">Comment</th>
+          <th scope="col">Image</th>
+          <th scope="col">File</th>
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody>
         <template v-for="comment in comments" :key="comment.id">
           <tr>
-            <td>{{ comment.author }}</td>
+            <td>
+              <div class="comment-author">
+                <a
+                  v-if="comment.avatar"
+                  class="author-avatar-link"
+                  :href="getDownloadUrl(comment.avatar)"
+                  :download="getFileName(comment.avatar)"
+                  :aria-label="`Download avatar for ${comment.author}`"
+                >
+                  <img
+                    class="author-avatar"
+                    :src="getPublicMediaUrl(comment.avatar)"
+                    :alt="`${comment.author}'s avatar`"
+                    width="36"
+                    height="36"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </a>
+                <span>{{ comment.author }}</span>
+              </div>
+            </td>
             <td>{{ new Date(comment.created_at).toLocaleString() }}</td>
             <td class="comment-content" v-html="comment.content"></td>
             <td>
@@ -22,12 +43,12 @@
                 v-if="comment.image"
                 :href="getDownloadUrl(comment.image)"
                 :download="getFileName(comment.image)"
-                :aria-label="`Завантажити зображення коментаря ${comment.id}`"
+                :aria-label="`Download image for comment ${comment.id}`"
               >
                 <img
                   class="comment-thumbnail"
                   :src="getPublicMediaUrl(comment.image)"
-                  :alt="`Зображення коментаря ${comment.id}`"
+                  :alt="`Image for comment ${comment.id}`"
                   width="96"
                   height="72"
                   loading="lazy"
@@ -43,14 +64,14 @@
                 :download="getFileName(comment.file)"
                 class="file-download"
               >
-                Завантажити
+                Download
               </a>
               <span v-else class="empty-value">—</span>
             </td>
             <td class="comment-actions">
-              <button type="button" @click="toggleReplyForm(comment.id)">Відповісти</button>
+              <button type="button" @click="toggleReplyForm(comment.id)">Reply</button>
               <button type="button" class="expand-btn" @click="toggleExpand(comment)">
-                {{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}
+                {{ expanded[comment.id] ? 'Collapse' : 'Expand' }}
               </button>
               <button
                 v-if="newReplyCounts[comment.id]"
@@ -58,7 +79,7 @@
                 class="new-replies-btn"
                 @click="refreshReplies(comment.id)"
               >
-                Нові відповіді ({{ newReplyCounts[comment.id] }})
+                New replies ({{ newReplyCounts[comment.id] }})
               </button>
             </td>
           </tr>
@@ -85,13 +106,13 @@
                 @commentCreated="handleCommentCreated"
               />
               <p v-else-if="hasLoadedChildren(comment.id)" class="empty-replies">
-                Коментарів поки немає.
+                No comments yet.
               </p>
             </td>
           </tr>
         </template>
         <tr v-if="comments.length === 0">
-          <td colspan="6" class="empty-list">Коментарів поки немає.</td>
+          <td colspan="6" class="empty-list">No comments yet.</td>
         </tr>
       </tbody>
     </table>
@@ -290,6 +311,25 @@ export default {
 
 .comment-content {
   line-height: 1.5;
+}
+
+.comment-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.author-avatar-link {
+  display: block;
+  flex: 0 0 36px;
+}
+
+.author-avatar {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .comment-thumbnail {

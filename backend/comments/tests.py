@@ -1,9 +1,15 @@
+import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 from comments.models import Comment
-from comments.serializers import CommentActivitySerializer
+from comments.serializers import (
+    CommentActivitySerializer,
+    CommentFlatSerializer,
+    CommentRootListSerializer,
+)
 
 User = get_user_model()
 
@@ -112,11 +118,49 @@ class CommentTests(APITestCase):
 
         self.assertEqual(CommentActivitySerializer(root).data['root_id'], root.id)
         self.assertEqual(CommentActivitySerializer(reply).data['root_id'], root.id)
+        self.assertIsNone(CommentActivitySerializer(reply).data['avatar'])
+        self.assertIsNone(CommentFlatSerializer(reply).data['avatar'])
+        self.assertIsNone(CommentRootListSerializer(root).data['avatar'])
         updated_tree = self.client.get(tree_url)
+        self.assertIsNone(updated_tree.data['avatar'])
         self.assertEqual(
             [item['id'] for item in updated_tree.data['replies']],
             [reply.id]
         )
+        self.assertIsNone(updated_tree.data['replies'][0]['avatar'])
+
+    def test_comment_serializers_include_author_avatar_url(self):
+        root = Comment.objects.create(author=self.user, content='Root comment')
+        reply = Comment.objects.create(
+            author=self.user,
+            content='Reply comment',
+            parent=root,
+        )
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                self.user.avatar.save(
+                    'avatar.gif',
+                    SimpleUploadedFile(
+                        name='avatar.gif',
+                        content=self.small_gif,
+                        content_type='image/gif',
+                    ),
+                    save=True,
+                )
+                root.refresh_from_db()
+                reply.refresh_from_db()
+
+                root_avatar = CommentRootListSerializer(root).data['avatar']
+                activity_avatar = CommentActivitySerializer(reply).data['avatar']
+                flat_avatar = CommentFlatSerializer(reply).data['avatar']
+                tree_data = self.client.get(f'{self.list_url}{root.id}/tree/').data
+
+        self.assertTrue(root_avatar)
+        self.assertEqual(activity_avatar, root_avatar)
+        self.assertEqual(flat_avatar, root_avatar)
+        self.assertTrue(tree_data['avatar'].endswith(root_avatar))
+        self.assertTrue(tree_data['replies'][0]['avatar'].endswith(root_avatar))
 
     def test_authenticated_user_can_create_comment_with_image(self):
         """Authenticated user can create a comment with an image."""
