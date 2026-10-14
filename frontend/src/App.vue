@@ -631,23 +631,40 @@ export default {
       })
       .then(data => {
         console.log('Registration successful:', data)
-        // Store username from registration response
-        const username = data.username || ''
-        this.usernameFromStorage = username
-        localStorage.setItem('username', username)
-        this.showRegisterModal = false
-        // Clear register form
-        this.register.username = ''
-        this.register.email = ''
-        this.register.password = ''
-        this.register.password2 = ''
-        this.register.captchaKey = ''
-        this.register.captchaQuestion = ''
-        this.register.captchaAnswer = ''
-        // Show success message and prompt to login
-        alert('Registration successful! You can now log in.')
-        this.showLoginModal = true
-        this.login.username = username // pre-fill username
+        const username = this.register.username
+        const password = this.register.password
+        return fetch('/api/user/token/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        })
+          .then(response => {
+            if (!response.ok) {
+              return response.json().then(error => { throw error })
+            }
+            return response.json()
+          })
+          .then(tokens => {
+            this.token = tokens.access
+            localStorage.setItem('access_token', tokens.access)
+            localStorage.setItem('refresh_token', tokens.refresh)
+            this.usernameFromStorage = username
+            localStorage.setItem('username', username)
+            this.showRegisterModal = false
+            this.showLoginModal = false
+            this.loginError = ''
+            this.resetRegisterForm()
+          })
+          .catch(error => {
+            console.error('Automatic login after registration failed:', error)
+            this.showRegisterModal = false
+            this.showLoginModal = true
+            this.login.username = username
+            this.loginError = 'Registration succeeded, but automatic login failed. Please log in.'
+            this.resetRegisterForm()
+          })
       })
       .catch(err => {
         console.error('Registration error:', err)
@@ -657,6 +674,15 @@ export default {
       .finally(() => {
         this.registerLoading = false
       })
+    },
+    resetRegisterForm() {
+      this.register.username = ''
+      this.register.email = ''
+      this.register.password = ''
+      this.register.password2 = ''
+      this.register.captchaKey = ''
+      this.register.captchaQuestion = ''
+      this.register.captchaAnswer = ''
     },
     getRegistrationErrorMessage(error) {
       if (error.detail) return error.detail
