@@ -54,27 +54,27 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         Validate the registration data.
         Includes CAPTCHA validation (currently commented out) and uniqueness checks for username and email.
         """
-        # TODO return code below
-        # # Validate CAPTCHA
-        # captcha_key = attrs.get('captcha_key')
-        # captcha_value = attrs.get('captcha_value')
-        #
-        # # if not captcha_key or not captcha_value:
-        # #     raise serializers.ValidationError("CAPTCHA is required.")
-        # if not captcha_key:
-        #     raise serializers.ValidationError({"captcha_key": f"CAPTCHA   key is required..{captcha_key} {captcha_value}"})
-        # if not captcha_value:
-        #     raise serializers.ValidationError({"captcha_value": f"CAPTCHA value is required..{captcha_value} {captcha_key}"})
-        #
-        # stored_value = cache.get(f"captcha_{captcha_key}")
-        # if stored_value is None:
-        #     raise serializers.ValidationError( f"Invalid or expired CAPTCHA key.{stored_value}")
-        #
-        # if stored_value.lower() != captcha_value.lower():
-        #     raise serializers.ValidationError({"captcha_value": "Invalid CAPTCHA value."})
-        #
-        # # Delete the used CAPTCHA from cache to prevent replay
-        # cache.delete(f"captcha_{captcha_key}")
+
+        # Validate CAPTCHA
+        captcha_key = attrs.get('captcha_key')
+        captcha_value = attrs.get('captcha_value')
+
+        # if not captcha_key or not captcha_value:
+        #     raise serializers.ValidationError("CAPTCHA is required.")
+        if not captcha_key:
+            raise serializers.ValidationError({"captcha_key": f"CAPTCHA   key is required..{captcha_key} {captcha_value}"})
+        if not captcha_value:
+            raise serializers.ValidationError({"captcha_value": f"CAPTCHA value is required..{captcha_value} {captcha_key}"})
+
+        stored_value = cache.get(f"captcha_{captcha_key}")
+        if stored_value is None:
+            raise serializers.ValidationError( f"Invalid or expired CAPTCHA key.{stored_value}")
+
+        if stored_value.lower() != captcha_value.lower():
+            raise serializers.ValidationError({"captcha_value": "Invalid CAPTCHA value."})
+
+        # Delete the used CAPTCHA from cache to prevent replay
+        cache.delete(f"captcha_{captcha_key}")
 
         # Validate that username and email are unique
         username = attrs.get("username")

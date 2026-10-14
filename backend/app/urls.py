@@ -15,14 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+import os
 from django.contrib import admin
 from django.urls import path, include
 from debug_toolbar.toolbar import debug_toolbar_urls
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from django.conf import settings
+from django.conf.urls.static import static
 
 from captcha.views import CaptchaGenerateView
+from . import views  # Import the views from the current app
 
 urlpatterns = [
+    path("", views.frontend_index, name="frontend-index"),  # Serve the frontend at the root
     path("admin/", admin.site.urls),
     path("api/user/", include("user.urls")),
     path("api/captcha/", CaptchaGenerateView.as_view(), name="captcha-generate"),
@@ -32,4 +37,11 @@ urlpatterns = [
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ] + debug_toolbar_urls()
-urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
+
+
+# Serve static files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    # Also serve the frontend directory as static files for JS, etc.
+    # We'll add an extra directory for the frontend src
+    urlpatterns += static('/frontend/', document_root=os.path.join(settings.BASE_DIR, 'frontend'))

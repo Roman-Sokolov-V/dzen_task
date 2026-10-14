@@ -72,10 +72,11 @@ class CommentRootListSerializer(serializers.ModelSerializer):
     Shows the author's username.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    email = serializers.EmailField(source="author.email", read_only=True)
 
     class Meta:
         model = Comment
-        fields = ["author", "content", "image", "file", "created_at"]
+        fields = ["author", "email", "content", "image", "file", "created_at"]
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):
@@ -155,3 +156,27 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
             ):  # if the node is a reply to another child (grandchild, etc.)
                 comment_map[child.parent_id]["replies"].append(node)
         return tree
+
+
+class CommentActivitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for comment activity via WebSocket.
+    Includes id, author, content, creation date, image, file, and parent.
+    """
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    image = serializers.SerializerMethodField()
+    file = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = ["id", "author", "content", "created_at", "image", "file", "parent"]
+
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
+    def get_file(self, obj):
+        if obj.file:
+            return obj.file.url
+        return None

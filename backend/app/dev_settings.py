@@ -40,6 +40,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -51,14 +52,18 @@ INSTALLED_APPS = [
     "mptt",
     "user",
     "comments",
-    "silk",
     "debug_toolbar",
     "django_celery_results",
     'drf_spectacular',
+    'channels',
+    'djangochannelsrestframework',
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -66,7 +71,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    #'silk.middleware.SilkyMiddleware',
 ]
 
 ROOT_URLCONF = "app.urls"
@@ -87,7 +91,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "app.wsgi.application"
-
+ASGI_APPLICATION = 'app.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
@@ -226,8 +230,6 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
-SILK_ENABLED = False
-
 
 # In Docker redis cache
 CACHES = {
@@ -268,3 +270,58 @@ SPECTACULAR_SETTINGS = {
     # None will default to DRF's AUTHENTICATION_CLASSES
     'SERVE_AUTHENTICATION': [],
 }
+
+
+# Конфігурація Channel Layers (для продакшену рекомендується Redis)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.getenv("REDIS_URL", "redis://redis:6379/1")],
+        },
+    },
+}
+# Для локальної розробки/тестування без Redis можна використати InMemory: #
+# CHANNEL_LAYERS = {
+# 'default': {
+# 'BACKEND': 'channels.layers.InMemoryChannelLayer',
+# },
+# }
+
+
+# CORS Settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080",
+]
+# Allow credentials (cookies, authorization headers)
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow all headers (adjust as needed for security)
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+# Allow all methods (adjust as needed)
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]

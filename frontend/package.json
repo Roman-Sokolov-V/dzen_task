@@ -1,0 +1,18 @@
+{
+  "name": "dzen-task-frontend",
+  "version": "1.0.0",
+  "description": "Vue frontend for dzen-task comments",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^2.0.0",
+    "vite": "^2.0.0"
+  }
+}
