@@ -180,10 +180,11 @@ class CommentActivitySerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     image = serializers.SerializerMethodField()
     file = serializers.SerializerMethodField()
+    root_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "content", "created_at", "image", "file", "parent"]
+        fields = ["id", "author", "content", "created_at", "image", "file", "parent", "root_id"]
 
     def get_image(self, obj):
         if obj.image:
@@ -195,4 +196,6 @@ class CommentActivitySerializer(serializers.ModelSerializer):
             return obj.file.url
         return None
 
+    def get_root_id(self, obj):
+        return obj.get_root().id
 

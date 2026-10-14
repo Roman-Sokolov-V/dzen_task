@@ -29,7 +29,7 @@
     <div v-if="showNewCommentsBanner" class="new-comments-banner">
       <div class="banner-content">
         З'явилися нові коментарі ({{ bufferedComments.length }})
-        <button class="btn btn-sm" @click="showBufferedComments()">Згорнути</button>
+        <button class="btn btn-sm" @click="showBufferedComments()">Показати нові коментарі</button>
       </div>
     </div>
 
@@ -40,6 +40,8 @@
       :hasLoadedChildren="hasLoadedChildren"
       :getCommentChildren="getCommentChildren"
       :token="token"
+      :newReplyCounts="newReplyCounts"
+      :clearReplyNotifications="clearReplyNotifications"
       @commentCreated="handleCommentCreated"
     />
     <!-- Load more button -->
@@ -135,6 +137,7 @@ export default {
       hasMore: true,
       // Buffered new comments (arrived via WebSocket since last fetch)
       bufferedComments: [],
+      bufferedReplies: {},
       showNewCommentsBanner: false,
       login: {
         username: '',
@@ -155,6 +158,11 @@ export default {
     }
   },
   computed: {
+    newReplyCounts() {
+      return Object.fromEntries(
+        Object.entries(this.bufferedReplies).map(([rootId, replies]) => [rootId, replies.length])
+      )
+    },
     username() {
       if (this.usernameFromStorage) {
         return this.usernameFromStorage
@@ -231,10 +239,20 @@ export default {
         }
         this.loadingMore = false
       } else if (action === 'create') {
-        // Buffer new comment and show banner
-        this.bufferedComments.push(commentData)
-        this.showNewCommentsBanner = true
-        // Do not update the main list immediately
+        if (commentData.parent == null) {
+          if (!this.bufferedComments.some(comment => comment.id === commentData.id)) {
+            this.bufferedComments.push(commentData)
+          }
+          this.showNewCommentsBanner = true
+        } else if (commentData.root_id != null) {
+          const rootId = String(commentData.root_id)
+          const replies = this.bufferedReplies[rootId] || []
+          if (!replies.some(comment => comment.id === commentData.id)) {
+            this.bufferedReplies[rootId] = [...replies, commentData]
+          }
+        } else {
+          console.error('Reply WebSocket message is missing root_id:', commentData)
+        }
       } else if (action === 'update') {
         this.updateCommentById(commentData)
         // Clear loaded children map as comment data may have changed
@@ -383,6 +401,26 @@ export default {
       this.bufferedComments.forEach(comment => this.insertCommentIntoSortedArray(comment));
       this.bufferedComments = [];
       this.showNewCommentsBanner = false;
+    },
+
+    clearReplyNotifications(rootId, loadedReplies) {
+      const loadedIds = new Set()
+      const collectIds = replies => {
+        replies.forEach(reply => {
+          loadedIds.add(reply.id)
+          collectIds(reply.children || [])
+        })
+      }
+      collectIds(loadedReplies)
+
+      const key = String(rootId)
+      const remainingReplies = (this.bufferedReplies[key] || [])
+        .filter(reply => !loadedIds.has(reply.id))
+      if (remainingReplies.length) {
+        this.bufferedReplies[key] = remainingReplies
+      } else {
+        delete this.bufferedReplies[key]
+      }
     },
 
     handleCommentCreated(formData) {

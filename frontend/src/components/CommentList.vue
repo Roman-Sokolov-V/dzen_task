@@ -52,6 +52,14 @@
               <button type="button" class="expand-btn" @click="toggleExpand(comment)">
                 {{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}
               </button>
+              <button
+                v-if="newReplyCounts[comment.id]"
+                type="button"
+                class="new-replies-btn"
+                @click="refreshReplies(comment.id)"
+              >
+                Нові відповіді ({{ newReplyCounts[comment.id] }})
+              </button>
             </td>
           </tr>
           <tr v-if="showReplyForm === comment.id && token">
@@ -71,6 +79,8 @@
                 :getCommentChildren="getCommentChildren"
                 :hasLoadedChildren="hasLoadedChildren"
                 :token="token"
+                :newReplyCounts="newReplyCounts"
+                :clearReplyNotifications="clearReplyNotifications"
                 @commentCreated="handleCommentCreated"
               />
               <p v-else-if="hasLoadedChildren(comment.id)" class="empty-replies">
@@ -119,12 +129,21 @@ export default {
     token: {
       type: String,
       required: true
+    },
+    newReplyCounts: {
+      type: Object,
+      default: () => ({})
+    },
+    clearReplyNotifications: {
+      type: Function,
+      required: true
     }
   },
   data() {
     return {
       showReplyForm: null,
-      expanded: {}
+      expanded: {},
+      loadingReplies: {}
     }
   },
   watch: {
@@ -146,26 +165,35 @@ export default {
         this.expanded[commentId] = false
         return
       }
-      if (!this.hasLoadedChildren(commentId)) {
-        fetch(`/api/comments/${commentId}/tree/`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok')
-            }
-            return response.json()
-          })
-          .then(apiTreeData => {
-            const childrenData = (apiTreeData.replies || [])
-              .map(reply => this.convertApiTreeToInternalFormat(reply))
-            this.setLoadedChildren(commentId, childrenData)
-            this.expanded[commentId] = true
-          })
-          .catch(error => {
-            console.error('Error fetching comment tree:', error)
-          })
+      if (!this.hasLoadedChildren(commentId) || this.newReplyCounts[commentId]) {
+        this.refreshReplies(commentId)
       } else {
         this.expanded[commentId] = true
       }
+    },
+    refreshReplies(commentId) {
+      if (this.loadingReplies[commentId]) return
+      this.loadingReplies[commentId] = true
+      fetch(`/api/comments/${commentId}/tree/`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok')
+          }
+          return response.json()
+        })
+        .then(apiTreeData => {
+          const childrenData = (apiTreeData.replies || [])
+            .map(reply => this.convertApiTreeToInternalFormat(reply))
+          this.setLoadedChildren(commentId, childrenData)
+          this.expanded[commentId] = true
+          this.clearReplyNotifications(commentId, childrenData)
+        })
+        .catch(error => {
+          console.error('Error fetching comment tree:', error)
+        })
+        .finally(() => {
+          this.loadingReplies[commentId] = false
+        })
     },
     convertApiTreeToInternalFormat(apiComment) {
       if (!apiComment) return null
@@ -301,6 +329,14 @@ export default {
 
 .comment-actions button:hover {
   background-color: #369870;
+}
+
+.comment-actions .new-replies-btn {
+  background-color: #007bff;
+}
+
+.comment-actions .new-replies-btn:hover {
+  background-color: #0056b3;
 }
 
 .reply-form {

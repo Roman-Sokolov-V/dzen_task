@@ -2,6 +2,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+from comments.models import Comment
+from comments.serializers import CommentActivitySerializer
 
 User = get_user_model()
 
@@ -86,6 +88,35 @@ class CommentTests(APITestCase):
         self.assertEqual(response.data['content'], 'This is a test comment.')
         # Author should be set to the authenticated user
         self.assertEqual(response.data['author'], self.user.username)
+
+    def test_activity_serializer_includes_root_id_for_replies(self):
+        self._authenticate(self.user)
+        root_response = self.client.post(
+            self.list_url,
+            {'content': 'Root comment'},
+            format='json'
+        )
+        self.assertEqual(root_response.status_code, status.HTTP_201_CREATED)
+        tree_url = f"{self.list_url}{root_response.data['id']}/tree/"
+        self.assertEqual(self.client.get(tree_url).data['replies'], [])
+
+        reply_response = self.client.post(
+            self.list_url,
+            {'content': 'Reply comment', 'parent': root_response.data['id']},
+            format='json'
+        )
+        self.assertEqual(reply_response.status_code, status.HTTP_201_CREATED)
+
+        root = Comment.objects.get(pk=root_response.data['id'])
+        reply = Comment.objects.get(pk=reply_response.data['id'])
+
+        self.assertEqual(CommentActivitySerializer(root).data['root_id'], root.id)
+        self.assertEqual(CommentActivitySerializer(reply).data['root_id'], root.id)
+        updated_tree = self.client.get(tree_url)
+        self.assertEqual(
+            [item['id'] for item in updated_tree.data['replies']],
+            [reply.id]
+        )
 
     def test_authenticated_user_can_create_comment_with_image(self):
         """Authenticated user can create a comment with an image."""
