@@ -32,11 +32,16 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         self.user = self.scope["user"]
         await self.accept()
 
+        # Initialize pagination and ordering state for this connection
+        self.current_ordering = "-created_at"
+        self.current_offset = 0
+        self.current_limit = None  # Will be set to PAGE_SIZE if None in send_initial_comments
+
         # Підписуємо клієнта на модельний обзервер для real-time оновлень
         await self.comment_activity.subscribe()
 
-        # Відправляємо початковий список кореневих коментарів із дефолтним сортуванням (нові зверху)
-        await self.send_initial_comments(ordering="-created_at")
+        # Відправляємо початковий список кореневих коментарів
+        await self.send_initial_comments()
 
     async def disconnect(self, close_code):
         """
@@ -44,27 +49,24 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         """
         await self.comment_activity.unsubscribe()
 
-    async def send_initial_comments(self, ordering="-created_at"):
+    async def send_initial_comments(self):
         """
         Завантажує та відправляє клієнту початковий список кореневих коментарів
-        з урахуванням переданого сортування. Ключ кешу формується динамічно.
+        з урахуванням поточного сортування та пагінації.
         """
-        # Формуємо ключ кешу залежно від сортування коренів
-        cache_key = f"root_comments_list_{ordering}"
+        # Імпортуємо налаштування DRF для отримання PAGE_SIZE
+        from rest_framework.settings import api_settings
+        limit = self.current_limit if self.current_limit is not None else api_settings.PAGE_SIZE
 
-        # Спробуємо отримати список із кешу асинхронно
-        queryset_list = await sync_to_async(cache.get)(cache_key)
+        # Витягуємо кореневі коментарі (parent=None) та сортуємо їх
+        queryset = Comment.objects.root_nodes().select_related("author").order_by(self.current_ordering)
+        queryset_list = await database_sync_to_async(list)(queryset)
 
-        if queryset_list is None:
-            # Витягуємо кореневі коментарі (parent=None) та сортуємо їх
-            queryset = Comment.objects.root_nodes().select_related("author").order_by(ordering)
-            queryset_list = await database_sync_to_async(list)(queryset)
-
-            # Зберігаємо у кеш на 15 хвилин (900 секунд)
-            await sync_to_async(cache.set)(cache_key, queryset_list, 900)
+        # Застосовуємо пагінацію
+        paginated_list = queryset_list[self.current_offset:self.current_offset + limit]
 
         # Серіалізуємо дані
-        serializer = CommentRootListSerializer(queryset_list, many=True)
+        serializer = CommentRootListSerializer(paginated_list, many=True)
 
         # Відправляємо клієнту через вебсокет
         await self.send_json({
@@ -104,7 +106,18 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         if action == "change_ordering":
             # Дозволяємо клієнту перемикати сортування списку коренів "на льоту"
             ordering = content.get("ordering", "-created_at")
-            await self.send_initial_comments(ordering=ordering)
+            self.current_ordering = ordering
+            self.current_offset = 0  # Reset offset to first page
+            await self.send_initial_comments()
+
+        elif action == "fetch_paginated_comments":
+            # Отримуємо параметри пагінації та сортування
+            limit = content.get("limit", self.current_limit)
+            offset = content.get("offset", self.current_offset)
+            # Update stored pagination state
+            self.current_limit = limit
+            self.current_offset = offset
+            await self.send_initial_comments()
 
         elif action == "create_comment":
             # Перевіряємо аутентифікацію
@@ -129,6 +142,7 @@ class CommentConsumer(GenericAsyncAPIConsumer):
                     "message": "Invalid data",
                     "errors": serializer.errors
                 })
+
         else:
             pass
 
@@ -139,9 +153,9 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         """
         Очищує кеш у Redis при додаванні або зміні коментаря.
         """
-        # 1. Скидаємо варіації кешу кореневих списків для основних сортувань
-        cache.delete("root_comments_list_-created_at")
-        cache.delete("root_comments_list_created_at")
+        # 1. Скидаємо варіації кешу кореневих списків для основних сортувань - VIMED ЗА ВИМОГОЮ
+        # cache.delete("root_comments_list_-created_at")
+        # cache.delete("root_comments_list_created_at")
 
         # 2. Скидаємо кеш конкретного дерева гілки за його ID (сортування на нього не впливає)
         cache.delete(f"comment_tree_{comment.id}")

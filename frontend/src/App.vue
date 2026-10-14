@@ -25,7 +25,25 @@
       </div>
     </header>
 
-    <CommentList :comments="sortedRootComments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" />
+    <!-- New comments banner -->
+    <div v-if="showNewCommentsBanner" class="new-comments-banner">
+      <div class="banner-content">
+        З'явилися нові коментарі ({{ bufferedComments.length }})
+        <button class="btn btn-sm" @click="showBufferedComments()">Згорнути</button>
+      </div>
+    </div>
+
+    <CommentList :comments="comments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" />
+    <!-- Load more button -->
+    <div v-if="hasMore && !loadingMore" class="load-more-container">
+      <button class="btn btn-primary" @click="loadNextPage">Завантажити більше</button>
+    </div>
+    <div v-else-if="loadingMore" class="load-more-container">
+      <button class="btn btn-primary" disabled>Завантаження...</button>
+    </div>
+    <div v-else-if="!hasMore" class="load-more-container">
+      <button class="btn btn-primary" disabled>Більше коментарів немає</button>
+    </div>
     <CommentForm @commentCreated="handleCommentCreated" />
 
     <!-- Login Modal -->
@@ -92,12 +110,20 @@ export default {
   },
   data() {
     return {
-      comments: [], // Array of root comments (received from WebSocket)
+      comments: [], // Array of root comments (received from WebSocket), already sorted by sortOrder
       ws: null,
       sortOrder: '-created_at', // Default sorting: newest first
       loadedChildrenMap: new Map(), // Map of comment ID to its loaded children tree
       token: localStorage.getItem('access_token') || '',
       usernameFromStorage: '',
+      // Pagination
+      pageOffset: 0,
+      pageLimit: 5, // Default page size, should match backend PAGE_SIZE
+      loadingMore: false,
+      hasMore: true,
+      // Buffered new comments (arrived via WebSocket since last fetch)
+      bufferedComments: [],
+      showNewCommentsBanner: false,
       login: {
         username: '',
         password: ''
@@ -130,29 +156,6 @@ export default {
       } catch (e) {
         return ''
       }
-    },
-    sortedRootComments() {
-      // Sort comments based on current sortOrder
-      // We create a new array to avoid mutating the original comments array
-      const sorted = [...this.comments]
-      if (this.sortOrder === 'created_at') {
-        sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      } else if (this.sortOrder === '-created_at') {
-        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      } else if (this.sortOrder === 'author__username') {
-        sorted.sort((a, b) => a.author.localeCompare(b.author))
-      } else if (this.sortOrder === '-author__username') {
-        sorted.sort((a, b) => b.author.localeCompare(a.author))
-      } else if (this.sortOrder === 'author__email') {
-        sorted.sort((a, b) => a.email.localeCompare(b.email))
-      } else if (this.sortOrder === '-author__email') {
-        sorted.sort((a, b) => b.email.localeCompare(a.email))
-      }
-      // Default to -created_at if sortOrder is not recognized
-      else {
-        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      }
-      return sorted
     }
   },
   mounted() {
@@ -173,6 +176,8 @@ export default {
 
       ws.onopen = () => {
         console.log('WebSocket connected')
+        // Fetch first page after connection is open
+        this.fetchPage(0)
       }
 
       ws.onmessage = (event) => {
@@ -196,10 +201,28 @@ export default {
     handleWebSocketMessage(data) {
       const { action, data: commentData } = data
       if (action === 'initial_comments') {
-        this.comments = commentData
-        // Clear loaded children map as we have a completely new set of comments
-        this.loadedChildrenMap.clear()
-      } else if (action === 'create' || action === 'update') {
+        // Determine if this is first page or subsequent page based on offset sent
+        // We don't have offset in message, so we rely on pageOffset in data.
+        // If pageOffset is 0, replace; else append.
+        if (this.pageOffset === 0) {
+          this.comments = commentData
+          // When replacing, clear loaded children map as we have a new set
+          this.loadedChildrenMap.clear()
+        } else {
+          // Append new comments to existing list
+          this.comments = [...this.comments, ...commentData]
+          // If we got fewer comments than limit, assume no more pages
+          if (commentData.length < this.pageLimit) {
+            this.hasMore = false
+          }
+        }
+        this.loadingMore = false
+      } else if (action === 'create') {
+        // Buffer new comment and show banner
+        this.bufferedComments.push(commentData)
+        this.showNewCommentsBanner = true
+        // Do not update the main list immediately
+      } else if (action === 'update') {
         this.updateCommentById(commentData)
         // Clear loaded children map as comment data may have changed
         this.loadedChildrenMap.clear()
@@ -210,16 +233,42 @@ export default {
       }
     },
     changeSortOrder(newOrder) {
-      if (this.sortOrder !== newOrder) {
-        this.sortOrder = newOrder
-        // Send WebSocket message to change ordering on server
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({
-            action: 'change_ordering',
-            ordering: newOrder
-          }))
-        }
+      // v-model already updated this.sortOrder, but we ensure it's set
+      this.sortOrder = newOrder
+      // Reset pagination
+      this.pageOffset = 0
+      this.hasMore = true
+      // Clear loaded children map as we have a new set
+      this.loadedChildrenMap.clear()
+      // Clear buffered comments and hide banner
+      this.bufferedComments = []
+      this.showNewCommentsBanner = false
+      // Send WebSocket message to change ordering on server and fetch first page
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          action: 'change_ordering',
+          ordering: newOrder
+        }))
       }
+    },
+    fetchPage(offset) {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          action: 'fetch_paginated_comments',
+          offset: offset,
+          limit: this.pageLimit
+        }))
+      }
+    },
+    loadNextPage() {
+      if (this.loadingMore || !this.hasMore) return
+      this.loadingMore = true
+      const nextOffset = this.pageOffset + this.pageLimit
+      this.fetchPage(nextOffset)
+      // Note: actual offset update will happen when we receive the response
+      // We'll update pageOffset in handleWebSocketMessage when we append.
+      // For simplicity, we update offset after sending request optimistically.
+      this.pageOffset = nextOffset
     },
     setLoadedChildren(commentId, children) {
       // Store the loaded children tree for a comment
@@ -232,12 +281,17 @@ export default {
       return this.loadedChildrenMap.get(commentId) || []
     },
     updateCommentById(comment) {
+      // Remove from comments array if present and re-insert to maintain sort order
       const index = this.comments.findIndex(c => c.id === comment.id)
       if (index !== -1) {
-        this.comments.splice(index, 1, comment)
-      } else {
-        // If not found, we can add it (should not happen for updates, but just in case)
-        this.comments.push(comment)
+        this.comments.splice(index, 1)
+      }
+      this.insertCommentIntoSortedArray(comment)
+
+      // Update in bufferedComments array (if present) - replace in place
+      const buffIndex = this.bufferedComments.findIndex(c => c.id === comment.id)
+      if (buffIndex !== -1) {
+        this.bufferedComments.splice(buffIndex, 1, comment)
       }
     },
     removeCommentById(id) {
@@ -245,7 +299,79 @@ export default {
       if (index !== -1) {
         this.comments.splice(index, 1)
       }
+      const buffIndex = this.bufferedComments.findIndex(c => c.id === id)
+      if (buffIndex !== -1) {
+        this.bufferedComments.splice(buffIndex, 1)
+      }
+      // Remove from loaded children map
+      this.loadedChildrenMap.delete(id)
     },
+    // Helper: compare two comments based on the current sortOrder
+    compareComments(a, b) {
+      const order = this.sortOrder
+      // Determine if order is descending
+      const descending = order.startsWith('-')
+      const field = descending ? order.substring(1) : order
+
+      let valA, valB
+      if (field === 'created_at') {
+        valA = new Date(a.created_at)
+        valB = new Date(b.created_at)
+      } else if (field === 'author__username') {
+        valA = a.author
+        valB = b.author
+      } else if (field === 'author__email') {
+        valA = a.email
+        valB = b.email
+      } else {
+        // Fallback to created_at
+        valA = new Date(a.created_at)
+        valB = new Date(b.created_at)
+      }
+
+      if (descending) {
+        // For descending, we want higher values first
+        if (valA < valB) return 1
+        if (valA > valB) return -1
+        return 0
+      } else {
+        // For ascending
+        if (valA < valB) return -1
+        if (valA > valB) return 1
+        return 0
+      }
+    },
+
+    // Insert a comment into the sorted comments array
+    insertCommentIntoSortedArray(comment) {
+      // If the array is empty, just push
+      if (this.comments.length === 0) {
+        this.comments.push(comment)
+        return
+      }
+
+      // Binary search to find the insertion index
+      let low = 0
+      let high = this.comments.length
+      while (low < high) {
+        const mid = Math.floor((low + high) / 2)
+        const cmp = this.compareComments(comment, this.comments[mid])
+        if (cmp < 0) {
+          high = mid
+        } else {
+          low = mid + 1
+        }
+      }
+      // Insert at index low
+      this.comments.splice(low, 0, comment)
+    },
+
+    showBufferedComments() {
+      this.bufferedComments.forEach(comment => this.insertCommentIntoSortedArray(comment));
+      this.bufferedComments = [];
+      this.showNewCommentsBanner = false;
+    },
+
     handleCommentCreated(comment) {
       // Send the new comment to the backend via REST API
       fetch('/api/comments/', {
@@ -328,7 +454,7 @@ export default {
               const payload = JSON.parse(atob(access.split('.')[1]))
               const usernameFromToken = payload.username || ''
               if (usernameFromToken) {
-                this.usernameFromStorage = usernameFromToken
+                this.usernameFromToken = usernameFromToken
                 localStorage.setItem('username', usernameFromToken)
               }
             } catch (e) {
@@ -542,5 +668,33 @@ button[type="submit"]:hover {
 button[type="submit"]:disabled {
   background-color: #6c757d;
   cursor: not-allowed;
+}
+.load-more-container {
+  margin: 2rem 0;
+  text-align: center;
+}
+.new-comments-banner {
+  background-color: #fffae6;
+  border: 1px solid #ffd28f;
+  color: #8a6d3b;
+  padding: 0.75rem 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.banner-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.banner-content button {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  background-color: #ffd28f;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.banner-content button:hover {
+  background-color: #ffc76f;
 }
 </style>
