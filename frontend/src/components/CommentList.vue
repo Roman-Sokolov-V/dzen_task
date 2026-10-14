@@ -8,12 +8,13 @@
       <div class="comment-content" v-html="comment.content"></div>
       <div class="comment-actions">
         <button @click="toggleReplyForm(comment.id)">Reply</button>
+        <button @click="toggleExpand(comment)" class="expand-btn">{{ expanded[comment.id] ? 'Collapse' : 'Expand' }}</button>
       </div>
       <div v-if="showReplyForm === comment.id" class="reply-form">
         <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
       </div>
-      <div v-if="comment.replies && comment.replies.length > 0" class="replies">
-        <CommentList :comments="comment.replies" />
+      <div v-if="expanded[comment.id] && comment.replies && comment.replies.length > 0" class="replies">
+        <CommentList :comments="comment.replies" :updateComment="updateComment" />
       </div>
     </div>
   </div>
@@ -26,6 +27,10 @@ export default {
     comments: {
       type: Array,
       required: true
+    },
+    updateComment: {
+      type: Function,
+      required: true
     }
   },
   computed: {
@@ -36,7 +41,13 @@ export default {
   },
   data() {
     return {
-      showReplyForm: null // The ID of the comment for which the reply form is shown
+      showReplyForm: null, // The ID of the comment for which the reply form is shown
+      expanded: {} // Map of comment ID to boolean indicating if replies are shown
+    }
+  },
+  watch: {
+    comments(newVal, oldVal) {
+      this.expanded = {}
     }
   },
   methods: {
@@ -45,6 +56,47 @@ export default {
         this.showReplyForm = null
       } else {
         this.showReplyForm = commentId
+      }
+    },
+    toggleExpand(comment) {
+      const commentId = comment?.id
+      console.log('toggleExpand called with commentId:', commentId)
+      if (!commentId) {
+        console.error('commentId is undefined or null')
+        return
+      }
+      const vm = this
+      if (vm.expanded[commentId]) {
+        // Collapse
+        vm.expanded[commentId] = false
+      } else {
+        // Expand: fetch the comment tree
+        fetch(`/api/comments/${commentId}/tree/`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok')
+            }
+            return response.json()
+          })
+          .then(treeData => {
+            // Update the comment and all its descendants in the flat list
+            vm.updateCommentTree(treeData)
+            // Mark as expanded
+            vm.expanded[commentId] = true
+          })
+          .catch(error => {
+            console.error('Error fetching comment tree:', error)
+          })
+      }
+    },
+    updateCommentTree(tree) {
+      // Update the current node
+      this.updateComment(tree)
+      // Recursively update replies
+      if (tree.replies && Array.isArray(tree.replies)) {
+        tree.replies.forEach(reply => {
+          this.updateCommentTree(reply)
+        })
       }
     },
     handleCommentCreated(comment) {
@@ -85,6 +137,9 @@ button {
 }
 button:hover {
   background-color: #369870;
+}
+.expand-btn {
+  margin-left: 8px;
 }
 .reply-form {
   margin-top: 16px;

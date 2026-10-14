@@ -76,7 +76,8 @@ class CommentRootListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["author", "email", "content", "image", "file", "created_at"]
+        fields = ["id", "author", "email", "content", "image", "file", "created_at"]
+        read_only_fields = ["id", "author", "email", "content", "image", "file", "created_at"]
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <h1>Коментарі</h1>
-    <CommentList :comments="comments" />
+    <CommentList :comments="comments" :updateComment="updateCommentById" />
     <CommentForm @commentCreated="handleCommentCreated" />
   </div>
 </template>
@@ -60,48 +60,25 @@ export default {
       const { action, data: commentData } = data
       if (action === 'initial_comments') {
         this.comments = commentData
-      } else if (action === 'create') {
-        // Add the new comment to the list
-        // We need to determine if it's a root comment or a reply
-        // For simplicity, we'll just push it and then reorder? Better to have a nested structure.
-        // We'll change the data structure to a tree later.
-        // For now, we'll just replace the comments with a new list? Not efficient.
-        // Let's assume we are only dealing with root comments for now? But the requirement includes replies.
-        // We'll need to implement a tree structure.
-        // We'll do a simple approach: if the comment is a root comment (parent_id === null), we add it to the root list.
-        // If it's a reply, we need to find the parent and add it to its replies.
-        // We'll change the data structure to a tree of comments.
-        // However, due to time, we'll just update the whole list by fetching again? Not ideal.
-        // We'll implement a simple tree update.
-        this.updateCommentInTree(commentData, 'add')
-      } else if (action === 'update') {
-        this.updateCommentInTree(commentData, 'update')
+      } else if (action === 'create' || action === 'update') {
+        this.updateCommentById(commentData)
       } else if (action === 'delete') {
-        this.updateCommentInTree(commentData, 'remove')
+        this.removeCommentById(commentData.id)
       }
     },
-    updateCommentInTree(commentData, operation) {
-      // We'll implement a simple tree update for now.
-      // We'll keep the comments as a flat list and use a map to update.
-      // But the CommentList component expects a tree? We'll change the CommentList to work with a flat list and build the tree internally.
-      // Let's change the data structure to a flat list of comments and build the tree in the CommentList component.
-      // For now, we'll just replace the whole list by re-fetching? We'll do a simple thing: on any mutation, we'll request the root comments again via API?
-      // That would be extra load. We'll stick to the websocket and update the flat list.
-
-      // We'll maintain a flat list of comments in `this.comments`.
-      const index = this.comments.findIndex(c => c.id === commentData.id)
-      if (operation === 'add') {
-        if (index === -1) {
-          this.comments.push(commentData)
-        }
-      } else if (operation === 'update') {
-        if (index !== -1) {
-          this.comments.splice(index, 1, commentData)
-        }
-      } else if (operation === 'remove') {
-        if (index !== -1) {
-          this.comments.splice(index, 1)
-        }
+    updateCommentById(comment) {
+      const index = this.comments.findIndex(c => c.id === comment.id)
+      if (index !== -1) {
+        this.comments.splice(index, 1, comment)
+      } else {
+        // If not found, we can add it (should not happen for updates, but just in case)
+        this.comments.push(comment)
+      }
+    },
+    removeCommentById(id) {
+      const index = this.comments.findIndex(c => c.id === id)
+      if (index !== -1) {
+        this.comments.splice(index, 1)
       }
     },
     handleCommentCreated(comment) {
