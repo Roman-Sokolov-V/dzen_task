@@ -1,34 +1,103 @@
 <template>
-  <div>
-    <div v-for="comment in comments" :key="comment.id" class="comment">
-      <div class="comment-header">
-        <strong>{{ comment.author }}</strong>
-        <span>{{ new Date(comment.created_at).toLocaleString() }}</span>
-      </div>
-      <div class="comment-content" v-html="comment.content"></div>
-      <div class="comment-actions">
-        <button @click="toggleReplyForm(comment.id)">Reply</button>
-        <button @click="toggleExpand(comment)" class="expand-btn">{{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}</button>
-      </div>
-      <div v-if="showReplyForm === comment.id && token" class="reply-form">
-        <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
-      </div>
-      <div v-if="expanded[comment.id]" class="replies">
-        <CommentList v-if="hasLoadedChildren(comment.id)" :comments="getCommentChildren(comment.id)" :updateComment="updateComment" :setLoadedChildren="setLoadedChildren" :getCommentChildren="getCommentChildren" :hasLoadedChildren="hasLoadedChildren" :token="token" />
-      </div>
-    </div>
+  <div class="comment-table-wrapper">
+    <table class="comment-table">
+      <thead>
+        <tr>
+          <th scope="col">Автор</th>
+          <th scope="col">Дата</th>
+          <th scope="col">Коментар</th>
+          <th scope="col">Зображення</th>
+          <th scope="col">Файл</th>
+          <th scope="col">Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template v-for="comment in comments" :key="comment.id">
+          <tr>
+            <td>{{ comment.author }}</td>
+            <td>{{ new Date(comment.created_at).toLocaleString() }}</td>
+            <td class="comment-content" v-html="comment.content"></td>
+            <td>
+              <a
+                v-if="comment.image"
+                :href="getDownloadUrl(comment.image)"
+                :download="getFileName(comment.image)"
+                :aria-label="`Завантажити зображення коментаря ${comment.id}`"
+              >
+                <img
+                  class="comment-thumbnail"
+                  :src="getPublicMediaUrl(comment.image)"
+                  :alt="`Зображення коментаря ${comment.id}`"
+                  width="96"
+                  height="72"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <span v-else class="empty-value">—</span>
+            </td>
+            <td>
+              <a
+                v-if="comment.file"
+                :href="getDownloadUrl(comment.file)"
+                :download="getFileName(comment.file)"
+                class="file-download"
+              >
+                Завантажити
+              </a>
+              <span v-else class="empty-value">—</span>
+            </td>
+            <td class="comment-actions">
+              <button type="button" @click="toggleReplyForm(comment.id)">Відповісти</button>
+              <button type="button" class="expand-btn" @click="toggleExpand(comment)">
+                {{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}
+              </button>
+            </td>
+          </tr>
+          <tr v-if="showReplyForm === comment.id && token">
+            <td colspan="6">
+              <div class="reply-form">
+                <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
+              </div>
+            </td>
+          </tr>
+          <tr v-if="expanded[comment.id]">
+            <td colspan="6" class="replies-cell">
+              <CommentList
+                v-if="hasLoadedChildren(comment.id) && getCommentChildren(comment.id).length"
+                :comments="getCommentChildren(comment.id)"
+                :updateComment="updateComment"
+                :setLoadedChildren="setLoadedChildren"
+                :getCommentChildren="getCommentChildren"
+                :hasLoadedChildren="hasLoadedChildren"
+                :token="token"
+              />
+              <p v-else-if="hasLoadedChildren(comment.id)" class="empty-replies">
+                Коментарів поки немає.
+              </p>
+            </td>
+          </tr>
+        </template>
+        <tr v-if="comments.length === 0">
+          <td colspan="6" class="empty-list">Коментарів поки немає.</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <script>
+import CommentForm from './CommentForm.vue'
+
 export default {
   name: 'CommentList',
+  components: {
+    CommentForm
+  },
   props: {
     comments: {
       type: Array,
       required: true
-      // Array of comment objects (flat, without children field)
-      // Each comment has fields: id, author, content, created_at, image, file, etc.
     },
     updateComment: {
       type: Function,
@@ -53,25 +122,18 @@ export default {
   },
   data() {
     return {
-      showReplyForm: null, // The ID of the comment for which the reply form is shown
-      expanded: {} // Map of comment ID to boolean indicating if replies are shown
+      showReplyForm: null,
+      expanded: {}
     }
   },
   watch: {
-    comments(newVal, oldVal) {
-      // Reset expanded state when comments list changes significantly
-      // In practice, we might want to preserve expanded state for existing comments
-      // For simplicity, we reset it when the comments array changes
+    comments() {
       this.expanded = {}
     }
   },
   methods: {
     toggleReplyForm(commentId) {
-      if (this.showReplyForm === commentId) {
-        this.showReplyForm = null
-      } else {
-        this.showReplyForm = commentId
-      }
+      this.showReplyForm = this.showReplyForm === commentId ? null : commentId
     },
     toggleExpand(comment) {
       const commentId = comment?.id
@@ -79,107 +141,179 @@ export default {
         console.error('commentId is undefined or null')
         return
       }
-      const vm = this
-      if (vm.expanded[commentId]) {
-        // Collapse
-        vm.expanded[commentId] = false
+      if (this.expanded[commentId]) {
+        this.expanded[commentId] = false
+        return
+      }
+      if (!this.hasLoadedChildren(commentId)) {
+        fetch(`/api/comments/${commentId}/tree/`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Network response was not ok')
+            }
+            return response.json()
+          })
+          .then(apiTreeData => {
+            const childrenData = (apiTreeData.replies || [])
+              .map(reply => this.convertApiTreeToInternalFormat(reply))
+            this.setLoadedChildren(commentId, childrenData)
+            this.expanded[commentId] = true
+          })
+          .catch(error => {
+            console.error('Error fetching comment tree:', error)
+          })
       } else {
-        // Expand: fetch the comment tree if children are not yet loaded
-        if (!vm.hasLoadedChildren(commentId)) {
-          fetch(`/api/comments/${commentId}/tree/`)
-            .then(response => {
-              if (!response.ok) {
-                throw new Error('Network response was not ok')
-              }
-              return response.json()
-            })
-            .then(apiTreeData => {
-              // Extract direct replies from the API response
-              const apiReplies = apiTreeData.replies || []
-              // Convert the replies array from API format to our internal format
-              const childrenData = apiReplies.map(reply => vm.convertApiTreeToInternalFormat(reply))
-              // Store the loaded children in the parent App.vue
-              vm.setLoadedChildren(commentId, childrenData)
-              // Mark as expanded
-              vm.expanded[commentId] = true
-            })
-            .catch(error => {
-              console.error('Error fetching comment tree:', error)
-            })
-        } else {
-          // Children are already loaded, just toggle expanded state
-          vm.expanded[commentId] = true
-        }
+        this.expanded[commentId] = true
       }
     },
-    // Convert API tree format (using 'replies') to our internal format (using 'children')
     convertApiTreeToInternalFormat(apiComment) {
       if (!apiComment) return null
-      // Create a copy of the comment without the 'replies' field
       const { replies, ...commentWithoutReplies } = apiComment
-      // Initialize children array
       const commentWithChildren = { ...commentWithoutReplies, children: [] }
-      // Recursively convert replies to children
       if (Array.isArray(replies)) {
         commentWithChildren.children = replies.map(reply => this.convertApiTreeToInternalFormat(reply))
       }
       return commentWithChildren
     },
-    getChildrenForComment(commentId) {
-      // Return the loaded children for a comment, or empty array if not loaded
-      return this.getCommentChildren(commentId) || []
+    getPublicMediaUrl(mediaUrl) {
+      const url = new URL(mediaUrl, window.location.origin)
+      const s3Path = '/storage/v1/s3/'
+      if (url.pathname.includes(s3Path)) {
+        url.pathname = url.pathname.replace(s3Path, '/storage/v1/object/public/')
+        url.hostname = url.hostname.replace('.storage.supabase.co', '.supabase.co')
+      }
+      return url.toString()
+    },
+    getFileName(fileUrl) {
+      const path = new URL(fileUrl, window.location.origin).pathname
+      return decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || 'comment-file'
+    },
+    getDownloadUrl(mediaUrl) {
+      const url = new URL(this.getPublicMediaUrl(mediaUrl))
+      url.searchParams.set('download', this.getFileName(mediaUrl))
+      return url.toString()
     },
     handleCommentCreated(comment) {
-      // Emit an event to the parent to update the comments list
       this.$emit('commentCreated', comment)
     }
   }
 }
 </script>
 
-<style>
-.comment {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
+<style scoped>
+.comment-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
   margin-bottom: 16px;
 }
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9em;
-  color: #666;
+
+.comment-table {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  text-align: left;
 }
+
+.comment-table th,
+.comment-table td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.comment-table th {
+  background-color: #f8f9fa;
+  color: #2c3e50;
+}
+
+.comment-table th:nth-child(1) {
+  width: 12%;
+}
+
+.comment-table th:nth-child(2) {
+  width: 17%;
+}
+
+.comment-table th:nth-child(3) {
+  width: 35%;
+}
+
+.comment-table th:nth-child(4),
+.comment-table th:nth-child(5) {
+  width: 12%;
+}
+
+.comment-table th:nth-child(6) {
+  width: 12%;
+}
+
 .comment-content {
-  margin: 16px 0;
   line-height: 1.5;
 }
-.comment-actions {
-  text-align: right;
+
+.comment-thumbnail {
+  display: block;
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
 }
-button {
+
+.file-download {
+  display: inline-block;
+  padding: 6px 10px;
+  color: #fff;
+  background-color: #007bff;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.file-download:hover {
+  background-color: #0056b3;
+}
+
+.empty-value,
+.empty-list {
+  color: #777;
+}
+
+.empty-list {
+  text-align: center;
+}
+
+.comment-actions {
+  white-space: normal;
+}
+
+.comment-actions button {
+  margin: 0 4px 4px 0;
+  padding: 6px 8px;
+  color: #fff;
   background-color: #42b983;
-  color: white;
-  border: none;
-  padding: 8px 16px;
+  border: 0;
   border-radius: 4px;
   cursor: pointer;
 }
-button:hover {
+
+.comment-actions button:hover {
   background-color: #369870;
 }
-.expand-btn {
-  margin-left: 8px;
-}
+
 .reply-form {
-  margin-top: 16px;
   padding: 16px;
   background-color: #f8f9fa;
   border-radius: 4px;
 }
-.replies {
-  margin-left: 32px;
-  border-left: 2px solid #eee;
-  padding-left: 16px;
+
+.replies-cell {
+  padding: 16px !important;
+  background-color: #fcfcfc;
+}
+
+.empty-replies {
+  margin: 0;
 }
 </style>
