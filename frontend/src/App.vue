@@ -33,7 +33,7 @@
       </div>
     </div>
 
-    <CommentList :comments="comments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" />
+    <CommentList :comments="comments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" :token="token" />
     <!-- Load more button -->
     <div v-if="hasMore && !loadingMore" class="load-more-container">
       <button class="btn btn-primary" @click="loadNextPage">Завантажити більше</button>
@@ -44,7 +44,11 @@
     <div v-else-if="!hasMore" class="load-more-container">
       <button class="btn btn-primary" disabled>Більше коментарів немає</button>
     </div>
-    <CommentForm @commentCreated="handleCommentCreated" />
+    <!-- Показуємо форму лише для авторизованих користувачів -->
+    <CommentForm v-if="token" @commentCreated="handleCommentCreated" />
+    <div v-else class="auth-required">
+      <p>Будь ласка, увійдіть або зареєструйтеся, щоб залишати коментарі.</p>
+    </div>
 
     <!-- Login Modal -->
     <div v-if="showLoginModal" class="modal-overlay" @click.self="showLoginModal = false">
@@ -114,7 +118,7 @@ export default {
       ws: null,
       sortOrder: '-created_at', // Default sorting: newest first
       loadedChildrenMap: new Map(), // Map of comment ID to its loaded children tree
-      token: localStorage.getItem('access_token') || '',
+      token: localStorage.getItem('access_token') || '', // JWT токен автентифікації
       usernameFromStorage: '',
       // Pagination
       pageOffset: 0,
@@ -147,11 +151,12 @@ export default {
       if (this.usernameFromStorage) {
         return this.usernameFromStorage
       }
-      if (!this.token) {
+      const token = this.token
+      if (!token) {
         return ''
       }
       try {
-        const payload = JSON.parse(atob(this.token.split('.')[1]))
+        const payload = JSON.parse(atob(token.split('.')[1]))
         return payload.username || payload.user_id || 'Користувач'
       } catch (e) {
         return ''
@@ -372,15 +377,20 @@ export default {
       this.showNewCommentsBanner = false;
     },
 
-    handleCommentCreated(comment) {
-      // Send the new comment to the backend via REST API
+    handleCommentCreated(formData) {
+      if (!this.token) {
+        console.error('No token available')
+        // Optionally, show a message to the user or redirect to login
+        return
+      }
+      // Send the new comment to the backend via REST API using multipart/form-data
       fetch('/api/comments/', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`
+          // Let the browser set the Content-Type for multipart/form-data
         },
-        body: JSON.stringify(comment)
+        body: formData
       })
       .then(response => {
         if (!response.ok) {
@@ -454,7 +464,7 @@ export default {
               const payload = JSON.parse(atob(access.split('.')[1]))
               const usernameFromToken = payload.username || ''
               if (usernameFromToken) {
-                this.usernameFromToken = usernameFromToken
+                this.usernameFromStorage = usernameFromToken
                 localStorage.setItem('username', usernameFromToken)
               }
             } catch (e) {
@@ -526,11 +536,11 @@ export default {
     },
     logout() {
       this.token = ''
-      this.usernameFromStorage = ''
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('username')
       // Optionally clear comments? Not necessary.
+      this.usernameFromStorage = ''
     }
   }
 }
@@ -696,5 +706,10 @@ button[type="submit"]:disabled {
 }
 .banner-content button:hover {
   background-color: #ffc76f;
+}
+.auth-required {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
 }
 </style>

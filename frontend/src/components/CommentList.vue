@@ -10,11 +10,11 @@
         <button @click="toggleReplyForm(comment.id)">Reply</button>
         <button @click="toggleExpand(comment)" class="expand-btn">{{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}</button>
       </div>
-      <div v-if="showReplyForm === comment.id" class="reply-form">
+      <div v-if="showReplyForm === comment.id && token" class="reply-form">
         <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
       </div>
       <div v-if="expanded[comment.id]" class="replies">
-        <CommentList v-if="hasLoadedChildren(comment.id)" :comments="getCommentChildren(comment.id)" :updateComment="updateComment" :setLoadedChildren="setLoadedChildren" :getCommentChildren="getCommentChildren" :hasLoadedChildren="hasLoadedChildren" />
+        <CommentList v-if="hasLoadedChildren(comment.id)" :comments="getCommentChildren(comment.id)" :updateComment="updateComment" :setLoadedChildren="setLoadedChildren" :getCommentChildren="getCommentChildren" :hasLoadedChildren="hasLoadedChildren" :token="token" />
       </div>
     </div>
   </div>
@@ -44,6 +44,10 @@ export default {
     },
     getCommentChildren: {
       type: Function,
+      required: true
+    },
+    token: {
+      type: String,
       required: true
     }
   },
