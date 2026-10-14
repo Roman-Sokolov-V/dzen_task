@@ -33,18 +33,36 @@
       </div>
     </div>
 
-    <CommentList
-      :comments="comments"
-      :updateComment="updateCommentById"
-      :setLoadedChildren="setLoadedChildren"
-      :hasLoadedChildren="hasLoadedChildren"
-      :getCommentChildren="getCommentChildren"
-      :token="token"
-      :newReplyCounts="newReplyCounts"
-      :clearReplyNotifications="clearReplyNotifications"
-      :lastCreatedReply="lastCreatedReply"
-      @commentCreated="handleCommentCreated"
-    />
+    <section class="comments-section">
+      <div class="comments-toolbar">
+        <button
+          v-if="token"
+          type="button"
+          class="add-comment-button"
+          @click="showRootCommentForm = !showRootCommentForm"
+        >
+          {{ showRootCommentForm ? 'Закрити форму' : 'Додати коментар' }}
+        </button>
+        <p v-else class="auth-required-inline">Увійдіть, щоб залишити коментар.</p>
+      </div>
+      <CommentForm
+        v-if="token && showRootCommentForm"
+        class="root-comment-form"
+        @commentCreated="handleCommentCreated"
+      />
+      <CommentList
+        :comments="comments"
+        :updateComment="updateCommentById"
+        :setLoadedChildren="setLoadedChildren"
+        :hasLoadedChildren="hasLoadedChildren"
+        :getCommentChildren="getCommentChildren"
+        :token="token"
+        :newReplyCounts="newReplyCounts"
+        :clearReplyNotifications="clearReplyNotifications"
+        :lastCreatedReply="lastCreatedReply"
+        @commentCreated="handleCommentCreated"
+      />
+    </section>
     <!-- Load more button -->
     <div v-if="hasMore && !loadingMore" class="load-more-container">
       <button class="btn btn-primary" @click="loadNextPage">Завантажити більше</button>
@@ -55,12 +73,6 @@
     <div v-else-if="!hasMore" class="load-more-container">
       <button class="btn btn-primary" disabled>Більше коментарів немає</button>
     </div>
-    <!-- Показуємо форму лише для авторизованих користувачів -->
-    <CommentForm v-if="token" @commentCreated="handleCommentCreated" />
-    <div v-else class="auth-required">
-      <p>Будь ласка, увійдіть або зареєструйтеся, щоб залишати коментарі.</p>
-    </div>
-
     <!-- Login Modal -->
     <div v-if="showLoginModal" class="modal-overlay" @click.self="showLoginModal = false">
       <div class="modal">
@@ -140,6 +152,7 @@ export default {
       bufferedComments: [],
       bufferedReplies: {},
       lastCreatedReply: null,
+      showRootCommentForm: false,
       showNewCommentsBanner: false,
       login: {
         username: '',
@@ -451,6 +464,8 @@ export default {
         const parentId = formData.get('parent')
         if (parentId !== null) {
           this.lastCreatedReply = { parentId: Number(parentId), commentId: data.id }
+        } else {
+          this.showRootCommentForm = false
         }
         // The websocket will broadcast the creation, so we don't need to update the list here.
       })
@@ -734,6 +749,27 @@ button[type="submit"]:disabled {
 .load-more-container {
   margin: 2rem 0;
   text-align: center;
+}
+.comments-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.add-comment-button {
+  padding: 0.6rem 1rem;
+  color: white;
+  background-color: #42b983;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.add-comment-button:hover {
+  background-color: #369870;
+}
+.auth-required-inline {
+  margin: 0;
+  color: #666;
 }
 .new-comments-banner {
   background-color: #fffae6;
