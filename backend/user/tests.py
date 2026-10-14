@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -22,6 +23,32 @@ class UserAuthenticationTests(APITestCase):
             "captcha_key": "dummy_key",
             "captcha_value": "dummy_value",
         }
+        cache.set("captcha_dummy_key", "dummy_value", timeout=300)
+
+    def test_captcha_endpoint_returns_challenge(self):
+        response = self.client.get("/api/captcha/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("captcha_key", response.data)
+        self.assertIn("question", response.data)
+        self.assertTrue(cache.get(f"captcha_{response.data['captcha_key']}"))
+
+    def test_register_requires_valid_captcha(self):
+        data = {**self.user_data, "captcha_key": "missing_key"}
+        response = self.client.post(self.register_url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("non_field_errors", response.data)
+        self.assertFalse(User.objects.filter(username=self.user_data["username"]).exists())
+
+    def test_register_requires_captcha_fields(self):
+        data = {
+            "username": "captcha_missing",
+            "email": "captcha_missing@example.com",
+            "password": "testpass123",
+        }
+        response = self.client.post(self.register_url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("captcha_key", response.data)
+        self.assertIn("captcha_value", response.data)
 
     def test_register_user_unauthenticated(self):
         """Unauthenticated user can register."""

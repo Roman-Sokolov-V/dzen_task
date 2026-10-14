@@ -16,7 +16,7 @@
         </div>
         <div class="auth-actions" v-if="!token">
           <button class="btn" @click="showLoginModal = true">Log in</button>
-          <button class="btn" @click="showRegisterModal = true">Sign up</button>
+          <button class="btn" @click="openRegisterModal">Sign up</button>
         </div>
         <div class="user-info" v-else>
           <span>{{ username }}</span>
@@ -115,10 +115,27 @@
             <label>Confirm password:</label>
             <input type="password" v-model="register.password2" required />
           </div>
+          <div class="form-group captcha-group">
+            <label for="registration-captcha">{{ register.captchaQuestion || 'Loading CAPTCHA...' }}</label>
+            <input
+              id="registration-captcha"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              v-model="register.captchaAnswer"
+              :disabled="captchaLoading || !register.captchaKey"
+              required
+            />
+            <button type="button" class="captcha-refresh" @click="loadCaptcha" :disabled="captchaLoading">
+              {{ captchaLoading ? 'Loading...' : 'Get a new question' }}
+            </button>
+          </div>
           <div class="form-group" v-if="registerError">
             <p class="error">{{ registerError }}</p>
           </div>
-          <button type="submit" :disabled="registerLoading">Sign up</button>
+          <button type="submit" :disabled="registerLoading || captchaLoading || !register.captchaKey">
+            {{ registerLoading ? 'Creating account...' : 'Sign up' }}
+          </button>
         </form>
       </div>
     </div>
@@ -162,8 +179,12 @@ export default {
         username: '',
         email: '',
         password: '',
-        password2: ''
+        password2: '',
+        captchaKey: '',
+        captchaQuestion: '',
+        captchaAnswer: ''
       },
+      captchaLoading: false,
       showLoginModal: false,
       showRegisterModal: false,
       loginLoading: false,
@@ -205,6 +226,36 @@ export default {
     this.disconnectWebSocket()
   },
   methods: {
+    openRegisterModal() {
+      this.showRegisterModal = true
+      this.registerError = ''
+      this.loadCaptcha()
+    },
+    loadCaptcha() {
+      this.captchaLoading = true
+      this.register.captchaKey = ''
+      this.register.captchaQuestion = ''
+      this.register.captchaAnswer = ''
+
+      fetch('/api/captcha/')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Unable to load CAPTCHA')
+          }
+          return response.json()
+        })
+        .then(data => {
+          this.register.captchaKey = data.captcha_key
+          this.register.captchaQuestion = data.question
+        })
+        .catch(error => {
+          console.error('CAPTCHA loading error:', error)
+          this.registerError = 'Could not load the CAPTCHA. Please try again.'
+        })
+        .finally(() => {
+          this.captchaLoading = false
+        })
+    },
     connectWebSocket() {
       // Connect to the websocket endpoint (relative URL, proxied by nginx)
       const ws = new WebSocket(`/ws/comments/`)
@@ -567,7 +618,9 @@ export default {
         body: JSON.stringify({
           username: this.register.username,
           email: this.register.email,
-          password: this.register.password
+          password: this.register.password,
+          captcha_key: this.register.captchaKey,
+          captcha_value: this.register.captchaAnswer
         })
       })
       .then(response => {
@@ -588,6 +641,9 @@ export default {
         this.register.email = ''
         this.register.password = ''
         this.register.password2 = ''
+        this.register.captchaKey = ''
+        this.register.captchaQuestion = ''
+        this.register.captchaAnswer = ''
         // Show success message and prompt to login
         alert('Registration successful! You can now log in.')
         this.showLoginModal = true
@@ -595,11 +651,19 @@ export default {
       })
       .catch(err => {
         console.error('Registration error:', err)
-        this.registerError = err.detail || 'Registration failed'
+        this.registerError = this.getRegistrationErrorMessage(err)
+        this.loadCaptcha()
       })
       .finally(() => {
         this.registerLoading = false
       })
+    },
+    getRegistrationErrorMessage(error) {
+      if (error.detail) return error.detail
+      const messages = Object.entries(error)
+        .flatMap(([, value]) => Array.isArray(value) ? value : [value])
+        .filter(value => typeof value === 'string')
+      return messages.join(' ') || 'Registration failed. Please check your details and try again.'
     },
     logout() {
       this.token = ''
