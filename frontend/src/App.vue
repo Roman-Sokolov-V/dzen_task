@@ -33,7 +33,15 @@
       </div>
     </div>
 
-    <CommentList :comments="comments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" :token="token" />
+    <CommentList
+      :comments="comments"
+      :updateComment="updateCommentById"
+      :setLoadedChildren="setLoadedChildren"
+      :hasLoadedChildren="hasLoadedChildren"
+      :getCommentChildren="getCommentChildren"
+      :token="token"
+      @commentCreated="handleCommentCreated"
+    />
     <!-- Load more button -->
     <div v-if="hasMore && !loadingMore" class="load-more-container">
       <button class="btn btn-primary" @click="loadNextPage">Завантажити більше</button>

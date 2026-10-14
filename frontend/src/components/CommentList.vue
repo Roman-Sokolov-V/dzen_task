@@ -71,6 +71,7 @@
                 :getCommentChildren="getCommentChildren"
                 :hasLoadedChildren="hasLoadedChildren"
                 :token="token"
+                @commentCreated="handleCommentCreated"
               />
               <p v-else-if="hasLoadedChildren(comment.id)" class="empty-replies">
                 Коментарів поки немає.
