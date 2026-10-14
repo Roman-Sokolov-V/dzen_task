@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div v-for="comment in rootComments" :key="comment.id" class="comment">
+    <div v-for="comment in comments" :key="comment.id" class="comment">
       <div class="comment-header">
         <strong>{{ comment.author }}</strong>
         <span>{{ new Date(comment.created_at).toLocaleString() }}</span>
@@ -8,13 +8,13 @@
       <div class="comment-content" v-html="comment.content"></div>
       <div class="comment-actions">
         <button @click="toggleReplyForm(comment.id)">Reply</button>
-        <button @click="toggleExpand(comment)" class="expand-btn">{{ expanded[comment.id] ? 'Collapse' : 'Expand' }}</button>
+        <button @click="toggleExpand(comment)" class="expand-btn">{{ expanded[comment.id] ? 'Згорнути' : 'Розгорнути' }}</button>
       </div>
       <div v-if="showReplyForm === comment.id" class="reply-form">
         <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
       </div>
-      <div v-if="expanded[comment.id] && comment.replies && comment.replies.length > 0" class="replies">
-        <CommentList :comments="comment.replies" :updateComment="updateComment" />
+      <div v-if="expanded[comment.id]" class="replies">
+        <CommentList v-if="hasLoadedChildren(comment.id)" :comments="getCommentChildren(comment.id)" :updateComment="updateComment" :setLoadedChildren="setLoadedChildren" :getCommentChildren="getCommentChildren" :hasLoadedChildren="hasLoadedChildren" />
       </div>
     </div>
   </div>
@@ -27,16 +27,24 @@ export default {
     comments: {
       type: Array,
       required: true
+      // Array of comment objects (flat, without children field)
+      // Each comment has fields: id, author, content, created_at, image, file, etc.
     },
     updateComment: {
       type: Function,
       required: true
-    }
-  },
-  computed: {
-    rootComments() {
-      // Filter out comments that have a parent (i.e., are replies)
-      return this.comments.filter(comment => !comment.parent_id)
+    },
+    setLoadedChildren: {
+      type: Function,
+      required: true
+    },
+    hasLoadedChildren: {
+      type: Function,
+      required: true
+    },
+    getCommentChildren: {
+      type: Function,
+      required: true
     }
   },
   data() {
@@ -47,6 +55,9 @@ export default {
   },
   watch: {
     comments(newVal, oldVal) {
+      // Reset expanded state when comments list changes significantly
+      // In practice, we might want to preserve expanded state for existing comments
+      // For simplicity, we reset it when the comments array changes
       this.expanded = {}
     }
   },
@@ -60,7 +71,6 @@ export default {
     },
     toggleExpand(comment) {
       const commentId = comment?.id
-      console.log('toggleExpand called with commentId:', commentId)
       if (!commentId) {
         console.error('commentId is undefined or null')
         return
@@ -70,34 +80,50 @@ export default {
         // Collapse
         vm.expanded[commentId] = false
       } else {
-        // Expand: fetch the comment tree
-        fetch(`/api/comments/${commentId}/tree/`)
-          .then(response => {
-            if (!response.ok) {
-              throw new Error('Network response was not ok')
-            }
-            return response.json()
-          })
-          .then(treeData => {
-            // Update the comment and all its descendants in the flat list
-            vm.updateCommentTree(treeData)
-            // Mark as expanded
-            vm.expanded[commentId] = true
-          })
-          .catch(error => {
-            console.error('Error fetching comment tree:', error)
-          })
+        // Expand: fetch the comment tree if children are not yet loaded
+        if (!vm.hasLoadedChildren(commentId)) {
+          fetch(`/api/comments/${commentId}/tree/`)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('Network response was not ok')
+              }
+              return response.json()
+            })
+            .then(apiTreeData => {
+              // Extract direct replies from the API response
+              const apiReplies = apiTreeData.replies || []
+              // Convert the replies array from API format to our internal format
+              const childrenData = apiReplies.map(reply => vm.convertApiTreeToInternalFormat(reply))
+              // Store the loaded children in the parent App.vue
+              vm.setLoadedChildren(commentId, childrenData)
+              // Mark as expanded
+              vm.expanded[commentId] = true
+            })
+            .catch(error => {
+              console.error('Error fetching comment tree:', error)
+            })
+        } else {
+          // Children are already loaded, just toggle expanded state
+          vm.expanded[commentId] = true
+        }
       }
     },
-    updateCommentTree(tree) {
-      // Update the current node
-      this.updateComment(tree)
-      // Recursively update replies
-      if (tree.replies && Array.isArray(tree.replies)) {
-        tree.replies.forEach(reply => {
-          this.updateCommentTree(reply)
-        })
+    // Convert API tree format (using 'replies') to our internal format (using 'children')
+    convertApiTreeToInternalFormat(apiComment) {
+      if (!apiComment) return null
+      // Create a copy of the comment without the 'replies' field
+      const { replies, ...commentWithoutReplies } = apiComment
+      // Initialize children array
+      const commentWithChildren = { ...commentWithoutReplies, children: [] }
+      // Recursively convert replies to children
+      if (Array.isArray(replies)) {
+        commentWithChildren.children = replies.map(reply => this.convertApiTreeToInternalFormat(reply))
       }
+      return commentWithChildren
+    },
+    getChildrenForComment(commentId) {
+      // Return the loaded children for a comment, or empty array if not loaded
+      return this.getCommentChildren(commentId) || []
     },
     handleCommentCreated(comment) {
       // Emit an event to the parent to update the comments list

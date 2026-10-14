@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
@@ -107,8 +108,8 @@ class CommentFlatSerializer(serializers.ModelSerializer):
 
 class CommentWithDescendantsSerializer(serializers.ModelSerializer):
     """
-    Serializer for a comment with its descendants (tree).
-    Includes author's username, reply count, and nested replies.
+    Серіалізатор для отримання дерева відповідей (нащадків) конкретного коментаря.
+    Використовує кешування в Redis на рівні окремого ID коментаря.
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     replies = serializers.SerializerMethodField()
@@ -133,31 +134,43 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
 
     def get_replies(self, obj):
         """
-        Return a list of replies (descendants) for the comment.
-        Builds a tree structure from the descendants.
+        Повертає список відповідей (нащадків) для коментаря.
+        Спочатку перевіряє кеш Redis за унікальним id коментаря.
+        Якщо в кеші пусто — будує дерево з бази даних і зберігає в кеш.
         """
-        # 1. Get all descendants in a single query
+        cache_key = f"comment_tree_{obj.id}"
+
+        # 1. Спробуємо взяти готове дерево з кешу
+        cached_tree = cache.get(cache_key)
+        if cached_tree is not None:
+            return cached_tree
+
+        # 2. Якщо в кеші немає, робимо єдиний запит до БД за всіма нащадками цього вузла
         descendants = (
             obj.get_descendants().select_related("author").order_by("tree_id", "lft")
         )
 
         comment_map = {}
         for child in descendants:
+            # Використовуємо CommentFlatSerializer для плоского представлення кожного нащадка
             data = CommentFlatSerializer(child, context=self.context).data
-            data["replies"] = []  # Add an empty list for future children
+            data["replies"] = []  # Готуємо масив під майбутні під-відповіді
             comment_map[child.id] = data
 
         tree = []
         for child in descendants:
             node = comment_map[child.id]
-            if child.parent_id == obj.id:  # if the node is a direct child
+            if child.parent_id == obj.id:
+                # Якщо це пряма відповідь на поточний коментар
                 tree.append(node)
-            elif (
-                child.parent_id in comment_map
-            ):  # if the node is a reply to another child (grandchild, etc.)
+            elif child.parent_id in comment_map:
+                # Якщо це відповідь на іншу відповідь (вкладеність)
                 comment_map[child.parent_id]["replies"].append(node)
-        return tree
 
+        # 3. Зберігаємо побудоване дерево в кеш на 15 хвилин (900 секунд)
+        cache.set(cache_key, tree, 900)
+
+        return tree
 
 class CommentActivitySerializer(serializers.ModelSerializer):
     """
@@ -181,3 +194,5 @@ class CommentActivitySerializer(serializers.ModelSerializer):
         if obj.file:
             return obj.file.url
         return None
+
+

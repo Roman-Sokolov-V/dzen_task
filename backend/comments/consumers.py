@@ -29,48 +29,41 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         Викликається автоматично щоразу, коли новий клієнт встановлює
         WebSocket-з'єднання з сервером (наприклад, відкриває сторінку поста).
         """
-        # Зберігаємо поточного користувача зі scope (передається через аутентификацію)
         self.user = self.scope["user"]
-
-        # Приймаємо рукостискання (handshake) і встановлюємо з'єднання
         await self.accept()
 
-        # 1. ОБОВ'ЯЗКОВО підписуємо клієнта на модельний обзервер.
-        # Без цього рядочка клієнт не отримуватиме жодних оновлень у реальному часі!
+        # Підписуємо клієнта на модельний обзервер для real-time оновлень
         await self.comment_activity.subscribe()
 
-        # 2. Одразу після підключення відправляємо клієнту початковий список коментарів
-        await self.send_initial_comments()
+        # Відправляємо початковий список кореневих коментарів із дефолтним сортуванням (нові зверху)
+        await self.send_initial_comments(ordering="-created_at")
 
     async def disconnect(self, close_code):
         """
         Викликається, коли клієнт закриває сторінку або втрачає з'єднання.
         """
-        # Примусово відписуємося від обзервера (хоча Channels зазвичай робить це сам)
         await self.comment_activity.unsubscribe()
 
-    async def send_initial_comments(self):
+    async def send_initial_comments(self, ordering="-created_at"):
         """
-        Завантажує та відправляє клієнту початковий список кореневих коментарів.
-        Спочатку перевіряє кеш Redis, якщо там пусто — робить запит до БД і кешує результат.
+        Завантажує та відправляє клієнту початковий список кореневих коментарів
+        з урахуванням переданого сортування. Ключ кешу формується динамічно.
         """
-        cache_key = "root_comments_list"
+        # Формуємо ключ кешу залежно від сортування коренів
+        cache_key = f"root_comments_list_{ordering}"
 
-        # Спробуємо отримати список із кешу асинхронно, щоб не блокувати Event Loop
+        # Спробуємо отримати список із кешу асинхронно
         queryset_list = await sync_to_async(cache.get)(cache_key)
 
         if queryset_list is None:
-            # Якщо в кеші нічого немає, робимо оптимізований запит до бази даних
-            # root_nodes() витягує тільки кореневі коментарі (parent=None), select_related підтягує авторів
-            queryset = Comment.objects.root_nodes().select_related("author")
-
-            # Перетворюємо QuerySet на звичайний список у безпечному синхронному потоці
+            # Витягуємо кореневі коментарі (parent=None) та сортуємо їх
+            queryset = Comment.objects.root_nodes().select_related("author").order_by(ordering)
             queryset_list = await database_sync_to_async(list)(queryset)
 
-            # Зберігаємо отриманий список у кеш Redis на 15 хвилин (900 секунд)
+            # Зберігаємо у кеш на 15 хвилин (900 секунд)
             await sync_to_async(cache.set)(cache_key, queryset_list, 900)
 
-        # Серіалізуємо дані у форматі JSON для відправки
+        # Серіалізуємо дані
         serializer = CommentRootListSerializer(queryset_list, many=True)
 
         # Відправляємо клієнту через вебсокет
@@ -85,22 +78,17 @@ class CommentConsumer(GenericAsyncAPIConsumer):
     @model_observer(Comment)
     async def comment_activity(self, message, action, observer, **kwargs):
         """
-        Цей метод спрацьовує автоматично в реальному часі щоразу,
-        коли в таблиці Comment відбувається CREATE (створення),
-        UPDATE (оновлення) або DELETE (видалення).
-        Він розсилає зміни всім підключеним клієнтам.
+        Спрацьовує автоматично в реальному часі при CREATE, UPDATE, DELETE коментарів.
         """
         await self.send_json({
-            "action": action,  # Передаємо тип події: 'create', 'update' або 'delete'
-            "data": message  # Дані, які підготував метод-серіалізатор нижче
+            "action": action,
+            "data": message
         })
 
     @comment_activity.serializer
     def comment_activity_serialize(self, instance, action, **kwargs):
         """
-        Допоміжний декоратор для DCRF. Він перетворює об'єкт моделі Comment
-        у стандартний словник за допомогою CommentActivitySerializer перед тим,
-        як передати його в метод comment_activity вище.
+        Серіалізує об'єкт моделі Comment за допомогою CommentActivitySerializer.
         """
         return CommentActivitySerializer(instance).data
 
@@ -109,13 +97,17 @@ class CommentConsumer(GenericAsyncAPIConsumer):
     # ==========================================
     async def receive_json(self, content, **kwargs):
         """
-        Цей метод викликається, коли клієнт надсилає на сервер якесь повідомлення
-        через WebSocket (наприклад, запит на створення коментаря).
+        Обробляє вхідні дії від клієнта через WebSocket (створення коментаря, зміна сортування тощо).
         """
         action = content.get("action")
 
-        if action == "create_comment":
-            # Перевіряємо, чи користувач увійшов у систему
+        if action == "change_ordering":
+            # Дозволяємо клієнту перемикати сортування списку коренів "на льоту"
+            ordering = content.get("ordering", "-created_at")
+            await self.send_initial_comments(ordering=ordering)
+
+        elif action == "create_comment":
+            # Перевіряємо аутентифікацію
             if not self.user.is_authenticated:
                 await self.send_json({
                     "action": "error",
@@ -123,28 +115,21 @@ class CommentConsumer(GenericAsyncAPIConsumer):
                 })
                 return
 
-            # Валідуємо вхідні дані через спільний Create-серіалізатор
+            # Валідація та збереження
             serializer = CommentCreateSerializer(data=content.get("data", {}))
 
             if serializer.is_valid():
-                # Зберігаємо коментар у базу даних із поточним користувачем як автором
-                # (використовуємо database_sync_to_async для безпечної роботи з ORM)
                 comment = await database_sync_to_async(serializer.save)(author=self.user)
 
-                # Очищуємо застарілий кеш для дерева коментарів та списків
+                # Очищуємо кеш списків і дерев
                 await sync_to_async(self._invalidate_comment_tree_cache)(comment)
-
-                # Примітка: метод comment_activity автоматично зловить створення
-                # нового коментаря в БД і розішле його всім клієнтам!
             else:
-                # Якщо валідація не пройшла — повертаємо помилки клієнту
                 await self.send_json({
                     "action": "error",
                     "message": "Invalid data",
                     "errors": serializer.errors
                 })
         else:
-            # Ігноруємо невідомі дії
             pass
 
     # ==========================================
@@ -152,16 +137,15 @@ class CommentConsumer(GenericAsyncAPIConsumer):
     # ==========================================
     def _invalidate_comment_tree_cache(self, comment):
         """
-        Очищує кеш у Redis, коли створюється або змінюється коментар.
-        Це гарантує, що наступні запити не віддадуть застарілу інформацію.
+        Очищує кеш у Redis при додаванні або зміні коментаря.
         """
-        # 1. Скидаємо загальний кеш списку кореневих коментарів
-        cache.delete("root_comments_list")
+        # 1. Скидаємо варіації кешу кореневих списків для основних сортувань
+        cache.delete("root_comments_list_-created_at")
+        cache.delete("root_comments_list_created_at")
 
-        # 2. Скидаємо кеш конкретного щойно створеного/зміненого коментаря
+        # 2. Скидаємо кеш конкретного дерева гілки за його ID (сортування на нього не впливає)
         cache.delete(f"comment_tree_{comment.id}")
 
-        # 3. Оскільки це дерево (MPTT), якщо у коментаря є батьківські елементи (предки),
-        # їхні гілки теж змінилися — очищуємо кеш і для них також.
+        # 3. Скидаємо кеш для всіх предків (ancestors) у MPTT-дереві
         for ancestor in comment.get_ancestors():
             cache.delete(f"comment_tree_{ancestor.id}")

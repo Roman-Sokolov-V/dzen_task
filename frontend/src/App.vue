@@ -3,6 +3,17 @@
     <header class="app-header">
       <div class="header-content">
         <span class="app-title">Коментарі</span>
+        <div class="sort-controls">
+          <label for="sortSelect">Сортування:</label>
+          <select id="sortSelect" v-model="sortOrder" @change="changeSortOrder(sortOrder)">
+            <option value="-created_at">Новіші спочатку</option>
+            <option value="created_at">Старіші спочатку</option>
+            <option value="author__username">Автор (А-Я)</option>
+            <option value="-author__username">Автор (Я-А)</option>
+            <option value="author__email">Email (А-Я)</option>
+            <option value="-author__email">Email (Я-А)</option>
+          </select>
+        </div>
         <div class="auth-actions" v-if="!token">
           <button class="btn" @click="showLoginModal = true">Увійти</button>
           <button class="btn" @click="showRegisterModal = true">Зареєструватися</button>
@@ -14,7 +25,7 @@
       </div>
     </header>
 
-    <CommentList :comments="comments" :updateComment="updateCommentById" />
+    <CommentList :comments="sortedRootComments" :updateComment="updateCommentById" :setLoadedChildren="setLoadedChildren" :hasLoadedChildren="hasLoadedChildren" :getCommentChildren="getCommentChildren" />
     <CommentForm @commentCreated="handleCommentCreated" />
 
     <!-- Login Modal -->
@@ -81,8 +92,10 @@ export default {
   },
   data() {
     return {
-      comments: [],
+      comments: [], // Array of root comments (received from WebSocket)
       ws: null,
+      sortOrder: '-created_at', // Default sorting: newest first
+      loadedChildrenMap: new Map(), // Map of comment ID to its loaded children tree
       token: localStorage.getItem('access_token') || '',
       usernameFromStorage: '',
       login: {
@@ -117,6 +130,29 @@ export default {
       } catch (e) {
         return ''
       }
+    },
+    sortedRootComments() {
+      // Sort comments based on current sortOrder
+      // We create a new array to avoid mutating the original comments array
+      const sorted = [...this.comments]
+      if (this.sortOrder === 'created_at') {
+        sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      } else if (this.sortOrder === '-created_at') {
+        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      } else if (this.sortOrder === 'author__username') {
+        sorted.sort((a, b) => a.author.localeCompare(b.author))
+      } else if (this.sortOrder === '-author__username') {
+        sorted.sort((a, b) => b.author.localeCompare(a.author))
+      } else if (this.sortOrder === 'author__email') {
+        sorted.sort((a, b) => a.email.localeCompare(b.email))
+      } else if (this.sortOrder === '-author__email') {
+        sorted.sort((a, b) => b.email.localeCompare(a.email))
+      }
+      // Default to -created_at if sortOrder is not recognized
+      else {
+        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      }
+      return sorted
     }
   },
   mounted() {
@@ -161,11 +197,39 @@ export default {
       const { action, data: commentData } = data
       if (action === 'initial_comments') {
         this.comments = commentData
+        // Clear loaded children map as we have a completely new set of comments
+        this.loadedChildrenMap.clear()
       } else if (action === 'create' || action === 'update') {
         this.updateCommentById(commentData)
+        // Clear loaded children map as comment data may have changed
+        this.loadedChildrenMap.clear()
       } else if (action === 'delete') {
         this.removeCommentById(commentData.id)
+        // Clear loaded children map as comment data may have changed
+        this.loadedChildrenMap.clear()
       }
+    },
+    changeSortOrder(newOrder) {
+      if (this.sortOrder !== newOrder) {
+        this.sortOrder = newOrder
+        // Send WebSocket message to change ordering on server
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({
+            action: 'change_ordering',
+            ordering: newOrder
+          }))
+        }
+      }
+    },
+    setLoadedChildren(commentId, children) {
+      // Store the loaded children tree for a comment
+      this.loadedChildrenMap.set(commentId, children)
+    },
+    hasLoadedChildren(commentId) {
+      return this.loadedChildrenMap.has(commentId)
+    },
+    getCommentChildren(commentId) {
+      return this.loadedChildrenMap.get(commentId) || []
     },
     updateCommentById(comment) {
       const index = this.comments.findIndex(c => c.id === comment.id)
