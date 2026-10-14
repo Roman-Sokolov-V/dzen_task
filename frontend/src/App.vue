@@ -42,6 +42,7 @@
       :token="token"
       :newReplyCounts="newReplyCounts"
       :clearReplyNotifications="clearReplyNotifications"
+      :lastCreatedReply="lastCreatedReply"
       @commentCreated="handleCommentCreated"
     />
     <!-- Load more button -->
@@ -138,6 +139,7 @@ export default {
       // Buffered new comments (arrived via WebSocket since last fetch)
       bufferedComments: [],
       bufferedReplies: {},
+      lastCreatedReply: null,
       showNewCommentsBanner: false,
       login: {
         username: '',
@@ -446,6 +448,10 @@ export default {
       })
       .then(data => {
         console.log('Comment created:', data)
+        const parentId = formData.get('parent')
+        if (parentId !== null) {
+          this.lastCreatedReply = { parentId: Number(parentId), commentId: data.id }
+        }
         // The websocket will broadcast the creation, so we don't need to update the list here.
       })
       .catch(error => {

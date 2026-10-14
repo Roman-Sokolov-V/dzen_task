@@ -81,6 +81,7 @@
                 :token="token"
                 :newReplyCounts="newReplyCounts"
                 :clearReplyNotifications="clearReplyNotifications"
+                :lastCreatedReply="lastCreatedReply"
                 @commentCreated="handleCommentCreated"
               />
               <p v-else-if="hasLoadedChildren(comment.id)" class="empty-replies">
@@ -137,6 +138,10 @@ export default {
     clearReplyNotifications: {
       type: Function,
       required: true
+    },
+    lastCreatedReply: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -149,6 +154,11 @@ export default {
   watch: {
     comments() {
       this.expanded = {}
+    },
+    lastCreatedReply(reply) {
+      if (reply && reply.parentId === Number(this.showReplyForm)) {
+        this.showReplyForm = null
+      }
     }
   },
   methods: {
