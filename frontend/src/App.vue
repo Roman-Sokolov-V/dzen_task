@@ -68,7 +68,7 @@
       <button class="btn btn-primary" @click="loadNextPage">Load more</button>
     </div>
     <div v-else-if="loadingMore" class="load-more-container">
-      <button class="btn btn-primary" disabled>Loading...</button>
+      <button class="btn btn-primary" disabled>Loading…</button>
     </div>
     <div v-else-if="!hasMore" class="load-more-container">
       <button class="btn btn-primary" disabled>No more comments</button>
@@ -80,11 +80,11 @@
         <form @submit.prevent="handleLogin">
           <div class="form-group">
             <label>Username:</label>
-            <input type="text" v-model="login.username" required />
+            <input type="text" v-model="login.username" required autocomplete="username" />
           </div>
           <div class="form-group">
             <label>Password:</label>
-            <input type="password" v-model="login.password" required />
+            <input type="password" v-model="login.password" required autocomplete="current-password" />
           </div>
           <div class="form-group" v-if="loginError">
             <p class="error">{{ loginError }}</p>
@@ -101,22 +101,22 @@
         <form @submit.prevent="handleRegister">
           <div class="form-group">
             <label>Username:</label>
-            <input type="text" v-model="register.username" required />
+            <input type="text" v-model="register.username" required autocomplete="username" />
           </div>
           <div class="form-group">
             <label>Email:</label>
-            <input type="email" v-model="register.email" required />
+            <input type="email" v-model="register.email" required autocomplete="email" :spellcheck="false" />
           </div>
           <div class="form-group">
             <label>Password:</label>
-            <input type="password" v-model="register.password" required />
+            <input type="password" v-model="register.password" required autocomplete="new-password" />
           </div>
           <div class="form-group">
             <label>Confirm password:</label>
-            <input type="password" v-model="register.password2" required />
+            <input type="password" v-model="register.password2" required autocomplete="new-password" />
           </div>
           <div class="form-group captcha-group">
-            <label for="registration-captcha">{{ register.captchaQuestion || 'Loading CAPTCHA...' }}</label>
+            <label for="registration-captcha">{{ register.captchaQuestion || 'Loading CAPTCHA…' }}</label>
             <input
               id="registration-captcha"
               type="text"
@@ -127,14 +127,14 @@
               required
             />
             <button type="button" class="captcha-refresh" @click="loadCaptcha" :disabled="captchaLoading">
-              {{ captchaLoading ? 'Loading...' : 'Get a new question' }}
+              {{ captchaLoading ? 'Loading…' : 'Get a new question' }}
             </button>
           </div>
           <div class="form-group" v-if="registerError">
             <p class="error">{{ registerError }}</p>
           </div>
           <button type="submit" :disabled="registerLoading || captchaLoading || !register.captchaKey">
-            {{ registerLoading ? 'Creating account...' : 'Sign up' }}
+            {{ registerLoading ? 'Creating account…' : 'Sign up' }}
           </button>
         </form>
       </div>
@@ -692,12 +692,14 @@ export default {
       return messages.join(' ') || 'Registration failed. Please check your details and try again.'
     },
     logout() {
-      this.token = ''
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('username')
-      // Optionally clear comments? Not necessary.
-      this.usernameFromStorage = ''
+      if (window.confirm('Ви впевнені, що хочете вийти з облікового запису?')) {
+        this.token = ''
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('username')
+        // Optionally clear comments? Not necessary.
+        this.usernameFromStorage = ''
+      }
     }
   }
 }
@@ -730,17 +732,20 @@ export default {
   font-size: 1.5rem;
   font-weight: bold;
   color: #2c3e50;
+  min-width: 0;
 }
 .auth-actions {
   display: flex;
   gap: 0.5rem;
   margin-left: auto;
+  min-width: 0;
 }
 .user-info {
   display: flex;
   align-items: center;
   gap: 1rem;
   margin-left: auto;
+  min-width: 0;
 }
 .btn {
   padding: 0.5rem 1rem;
@@ -749,6 +754,10 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+.btn:focus-visible {
+  outline: 2px solid #2c3e50;
+  outline-offset: 2px;
 }
 .btn-primary {
   background-color: #007bff;
@@ -796,6 +805,7 @@ export default {
   margin-bottom: 1.5rem;
   color: #2c3e50;
   text-align: center;
+  text-wrap: balance;
 }
 .form-group {
   margin-bottom: 1rem;
@@ -812,7 +822,7 @@ export default {
   border-radius: 4px;
   font-size: 1rem;
 }
-.form-group input:focus {
+.form-group input:focus-visible {
   outline: none;
   border-color: #80bdff;
   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);

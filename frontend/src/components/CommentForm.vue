@@ -2,7 +2,7 @@
   <div class="comment-form">
     <form class="comment-form-layout" @submit.prevent="onSubmit">
       <label class="visually-hidden" :for="contentInputId">Comment text</label>
-      <textarea :id="contentInputId" v-model="content" placeholder="Write a comment..." required></textarea>
+      <textarea :id="contentInputId" v-model="content" placeholder="Write a comment..." required autocomplete="off" rows="3"></textarea>
       <div class="comment-form-controls">
         <label class="attachment-button">
           Add text file
@@ -12,7 +12,9 @@
           Add image
           <input type="file" accept="image/*" @change="onImageChange" />
         </label>
-        <button type="submit" class="submit-button">Submit</button>
+        <button type="submit" class="submit-button" :disabled="submitting">
+          {{ submitting ? 'Submitting...' : 'Submit' }}
+        </button>
       </div>
     </form>
     <div class="selected-files" aria-live="polite">
@@ -30,7 +32,13 @@ export default {
   props: {
     parentId: {
       type: [Number, String],
-      default: null
+      default: null,
+      validator: value => {
+        // Allow null, numbers, or numeric strings
+        return value === null ||
+               typeof value === 'number' ||
+               (typeof value === 'string' && !isNaN(Number(value)))
+      }
     }
   },
   data() {
@@ -38,7 +46,8 @@ export default {
       formId: ++nextFormId,
       content: '',
       imageFile: null,
-      fileFile: null
+      fileFile: null,
+      submitting: false
     }
   },
   computed: {
@@ -58,6 +67,8 @@ export default {
         return
       }
 
+      this.submitting = true
+
       const formData = new FormData()
       formData.append('content', this.content)
       if (this.parentId !== null) {
@@ -76,6 +87,11 @@ export default {
       this.fileFile = null
       const form = this.$el.querySelector('form')
       if (form) form.reset()
+
+      // Reset submitting state after a brief delay to allow UI update
+      setTimeout(() => {
+        this.submitting = false
+      }, 100)
     }
   }
 }
@@ -128,20 +144,29 @@ export default {
   cursor: pointer;
   font: inherit;
   font-size: 0.9rem;
+  min-width: 0;
 }
 
 .attachment-button:hover,
 .submit-button:hover {
   background: #369870;
 }
+.attachment-button:focus-visible,
+.submit-button:focus-visible {
+  outline: 2px solid #2c3e50;
+  outline-offset: 2px;
+}
 
 .attachment-button input {
   position: absolute;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
   clip-path: inset(50%);
 }
 
@@ -180,6 +205,8 @@ export default {
   .submit-button {
     padding: 5px;
     font-size: 0.8rem;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 </style>
