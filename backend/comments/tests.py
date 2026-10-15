@@ -1,5 +1,7 @@
 import tempfile
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from rest_framework import status
@@ -10,6 +12,7 @@ from comments.serializers import (
     CommentFlatSerializer,
     CommentRootListSerializer,
 )
+from comments.consumers import normalize_comment_ordering
 
 User = get_user_model()
 
@@ -94,6 +97,93 @@ class CommentTests(APITestCase):
         self.assertEqual(response.data['content'], 'This is a test comment.')
         # Author should be set to the authenticated user
         self.assertEqual(response.data['author'], self.user.username)
+
+    def test_comment_create_serializer_sanitizes_xss_attributes(self):
+        from comments.serializers import CommentCreateSerializer
+
+        unsafe_content = '<strong onclick="alert(1)">Safe text</strong>'
+        serializer = CommentCreateSerializer(data={'content': unsafe_content})
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data['content'], '<strong>Safe text</strong>')
+        comment = serializer.save(author=self.user)
+        self.assertEqual(comment.content, '<strong>Safe text</strong>')
+
+    def test_comment_output_serializers_sanitize_legacy_xss(self):
+        unsafe_content = '<strong onmouseover="alert(1)">Legacy text</strong>'
+        comment = Comment.objects.create(author=self.user, content=unsafe_content)
+
+        self.assertEqual(
+            CommentRootListSerializer(comment).data['content'],
+            '<strong>Legacy text</strong>',
+        )
+        self.assertEqual(
+            CommentActivitySerializer(comment).data['content'],
+            '<strong>Legacy text</strong>',
+        )
+
+    def test_model_validator_rejects_unsafe_html_attributes(self):
+        from comments.validators import validate_html_tags
+
+        with self.assertRaises(ValidationError):
+            validate_html_tags('<a href="javascript:alert(1)" onclick="alert(1)">link</a>')
+
+    def test_comment_sanitizer_preserves_allowed_anchor_attributes(self):
+        from comments.serializers import CommentCreateSerializer
+        from comments.validators import validate_html_tags
+
+        allowed_content = (
+            '<a href="https://example.com" title="Example">link</a>'
+            '<code>code</code><i>italic</i><strong>bold</strong>'
+        )
+        serializer = CommentCreateSerializer(data={'content': allowed_content})
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data['content'], allowed_content)
+        validate_html_tags(allowed_content)
+
+    def test_comment_serializer_removes_unsafe_tags_and_link_schemes(self):
+        from comments.serializers import CommentCreateSerializer
+
+        serializer = CommentCreateSerializer(data={
+            'content': (
+                '<a href="javascript:alert(1)" onclick="alert(1)">link</a>'
+                '<img src="x" onerror="alert(1)">'
+            )
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        sanitized_content = serializer.validated_data['content']
+        self.assertNotIn('javascript:', sanitized_content)
+        self.assertNotIn('onclick', sanitized_content)
+        self.assertNotIn('<img', sanitized_content)
+        self.assertIn('link', sanitized_content)
+
+    def test_tree_endpoint_sanitizes_legacy_cached_html(self):
+        comment = Comment.objects.create(author=self.user, content='Safe root')
+        cache.set(f'comment_tree_{comment.id}', {
+            'id': comment.id,
+            'content': '<strong onclick="alert(1)">Legacy root</strong>',
+            'replies': [{
+                'id': comment.id + 1,
+                'content': '<i onmouseover="alert(1)">Legacy reply</i>',
+                'replies': [],
+            }],
+        }, 900)
+
+        response = self.client.get(f'{self.list_url}{comment.id}/tree/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['content'], '<strong>Legacy root</strong>')
+        self.assertEqual(
+            response.data['replies'][0]['content'],
+            '<i>Legacy reply</i>',
+        )
+
+    def test_websocket_ordering_is_allowlisted(self):
+        self.assertEqual(normalize_comment_ordering('author__username'), 'author__username')
+        self.assertEqual(normalize_comment_ordering('created_at; DROP TABLE comments_comment'), '-created_at')
+        self.assertEqual(normalize_comment_ordering(['created_at']), '-created_at')
 
     def test_activity_serializer_includes_root_id_for_replies(self):
         self._authenticate(self.user)

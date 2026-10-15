@@ -11,6 +11,7 @@ from comments.serializers import (
     CommentRootListSerializer,
     CommentWithDescendantsSerializer,
     BasicCommentSerializer,
+    sanitize_comment_tree,
 )
 import logging
 from drf_spectacular.utils import extend_schema, OpenApiParameter
@@ -151,7 +152,9 @@ class CommentViewSet(viewsets.ModelViewSet):
             logger.info(
                 "-------------------------Cache found--------------------------"
             )
-            return Response(cached_data)
+            sanitized_data = sanitize_comment_tree(cached_data)
+            cache.set(cache_key, sanitized_data, timeout=900)
+            return Response(sanitized_data)
 
         comment = self.get_object()
         serializer = self.get_serializer(

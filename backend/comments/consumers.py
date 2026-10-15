@@ -16,6 +16,21 @@ from comments.serializers import (
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_COMMENT_ORDERINGS = {
+    "author__username",
+    "-author__username",
+    "created_at",
+    "-created_at",
+    "author__email",
+    "-author__email",
+}
+
+
+def normalize_comment_ordering(ordering):
+    if isinstance(ordering, str) and ordering in ALLOWED_COMMENT_ORDERINGS:
+        return ordering
+    return "-created_at"
+
 
 class CommentConsumer(GenericAsyncAPIConsumer):
     """
@@ -106,7 +121,7 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         if action == "change_ordering":
             # Дозволяємо клієнту перемикати сортування списку коренів "на льоту"
             ordering = content.get("ordering", "-created_at")
-            self.current_ordering = ordering
+            self.current_ordering = normalize_comment_ordering(ordering)
             self.current_offset = 0  # Reset offset to first page
             await self.send_initial_comments()
 

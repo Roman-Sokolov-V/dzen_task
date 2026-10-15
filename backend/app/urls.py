@@ -23,7 +23,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from django.conf import settings
 from django.conf.urls.static import static
 
-from captcha.views import CaptchaGenerateView
+from captcha.captcha import CaptchaGenerateView
 from . import views  # Import the views from the current app
 
 urlpatterns = [

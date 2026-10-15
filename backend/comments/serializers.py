@@ -4,9 +4,30 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 
 from comments.models import Comment
-from comments.validators import validate_txt_file
+from comments.validators import sanitize_comment_html, validate_txt_file
 from user.serializers import UserSerializer
 from utils import resize_image
+
+
+class SafeCommentHTMLField(serializers.CharField):
+    def to_internal_value(self, data):
+        return sanitize_comment_html(super().to_internal_value(data))
+
+    def to_representation(self, value):
+        return super().to_representation(sanitize_comment_html(value))
+
+
+def sanitize_comment_tree(data):
+    if isinstance(data, list):
+        return [sanitize_comment_tree(item) for item in data]
+    if isinstance(data, dict):
+        return {
+            key: sanitize_comment_html(value)
+            if key == "content" and isinstance(value, str)
+            else sanitize_comment_tree(value)
+            for key, value in data.items()
+        }
+    return data
 
 
 class BasicCommentSerializer(serializers.ModelSerializer):
@@ -15,6 +36,7 @@ class BasicCommentSerializer(serializers.ModelSerializer):
     Includes id, author, content, creation date, image, and file.
     """
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    content = SafeCommentHTMLField()
 
     class Meta:
         model = Comment
@@ -37,6 +59,7 @@ class CommentCreateSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(read_only=True)
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    content = SafeCommentHTMLField()
 
     class Meta:
         model = Comment
@@ -79,6 +102,7 @@ class CommentRootListSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     email = serializers.EmailField(source="author.email", read_only=True)
+    content = SafeCommentHTMLField(read_only=True)
 
     class Meta:
         model = Comment
@@ -93,6 +117,7 @@ class CommentFlatSerializer(serializers.ModelSerializer):
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    content = SafeCommentHTMLField(read_only=True)
     replies_count = serializers.IntegerField(
         source="get_descendant_count", read_only=True
     )
@@ -120,6 +145,7 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    content = SafeCommentHTMLField(read_only=True)
     replies = serializers.SerializerMethodField()
     replies_count = serializers.IntegerField(
         source="get_descendant_count", read_only=True
@@ -152,7 +178,7 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
         # 1. Спробуємо взяти готове дерево з кешу
         cached_tree = cache.get(cache_key)
         if cached_tree is not None:
-            return cached_tree
+            return sanitize_comment_tree(cached_tree)
 
         # 2. Якщо в кеші немає, робимо єдиний запит до БД за всіма нащадками цього вузла
         descendants = (
@@ -188,6 +214,7 @@ class CommentActivitySerializer(serializers.ModelSerializer):
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    content = SafeCommentHTMLField(read_only=True)
     image = serializers.SerializerMethodField()
     file = serializers.SerializerMethodField()
     root_id = serializers.SerializerMethodField()

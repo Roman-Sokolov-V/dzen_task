@@ -1,7 +1,23 @@
 import os
 from django.core.exceptions import ValidationError
-
 import re
+import nh3
+
+
+ALLOWED_COMMENT_TAGS = {"a", "code", "i", "strong"}
+ALLOWED_COMMENT_ATTRIBUTES = {"a": {"href", "title"}}
+ALLOWED_COMMENT_URL_SCHEMES = {"http", "https", "mailto"}
+
+
+def sanitize_comment_html(value):
+    return nh3.clean(
+        value,
+        tags=ALLOWED_COMMENT_TAGS,
+        attributes=ALLOWED_COMMENT_ATTRIBUTES,
+        url_schemes=ALLOWED_COMMENT_URL_SCHEMES,
+        link_rel=None,
+        strip_comments=True,
+    )
 
 
 def validate_letters_numbers_only(value):
@@ -13,23 +29,12 @@ def validate_letters_numbers_only(value):
 
 
 def validate_html_tags(value):
-    """Validate that value contains only allowed HTML tags and is valid XHTML."""
-    allowed_tags = {"a", "code", "i", "strong"}
-    # We'll do a simple check: remove allowed tags and see if any angle brackets remain
-    # This is not a full XHTML validator but serves for the assignment.
-    # For a production system, use a proper library like bleach.
-    # We'll allow text without tags as well.
-    # Remove allowed tags
-    cleaned = re.sub(
-        r"<(/?)(a|code|i|strong)(\s[^>]*)?>", "", value, flags=re.IGNORECASE
-    )
-    # If there are any remaining angle brackets, it's invalid
-    if "<" in cleaned or ">" in cleaned:
+    """Reject markup that would be changed by the comment HTML sanitizer."""
+    if sanitize_comment_html(value) != value:
         raise ValidationError(
-            "The text contains disallowed HTML tags. Allowed: <a>, <code>, <i>, <strong>.",
+            "The text contains unsafe or disallowed HTML.",
             code="invalid_html",
         )
-    # Additionally, we could check for well-formedness, but we skip for simplicity.
 
 
 MAX_TEXT_FILE_SIZE = 100 * 1024
