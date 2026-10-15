@@ -1,5 +1,8 @@
 <template>
   <div class="comment-form">
+    <div v-if="formError" class="error">
+      {{ formError }}
+    </div>
     <form class="comment-form-layout" @submit.prevent="onSubmit">
       <label class="visually-hidden" :for="contentInputId">Comment text</label>
       <textarea :id="contentInputId" v-model="content" placeholder="Write a comment..." required autocomplete="off" rows="3"></textarea>
@@ -47,7 +50,16 @@ export default {
       content: '',
       imageFile: null,
       fileFile: null,
-      submitting: false
+      submitting: false,
+      formError: ''
+    }
+  },
+  watch: {
+    content() {
+      // Clear form error when user starts typing
+      if (this.formError) {
+        this.formError = ''
+      }
     }
   },
   computed: {
@@ -63,7 +75,11 @@ export default {
       this.fileFile = event.target.files[0] || null
     },
     onSubmit() {
+      // Clear any previous form error
+      this.formError = ''
+
       if (!this.content.trim()) {
+        this.formError = 'Please enter a comment before submitting.'
         return
       }
 
@@ -82,16 +98,18 @@ export default {
       }
 
       this.$emit('commentCreated', formData)
-      this.content = ''
-      this.imageFile = null
-      this.fileFile = null
-      const form = this.$el.querySelector('form')
-      if (form) form.reset()
 
       // Reset submitting state after a brief delay to allow UI update
       setTimeout(() => {
         this.submitting = false
       }, 100)
+    },
+    clearForm() {
+      this.content = ''
+      this.imageFile = null
+      this.fileFile = null
+      const form = this.$el.querySelector('form')
+      if (form) form.reset()
     }
   }
 }
@@ -182,6 +200,12 @@ export default {
   margin-top: 6px;
   color: #555;
   font-size: 0.85rem;
+}
+.error {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 6px;
+  margin-bottom: 12px;
 }
 
 .visually-hidden {

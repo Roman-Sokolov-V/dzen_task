@@ -88,7 +88,7 @@
           <tr v-if="showReplyForm === comment.id && token">
             <td colspan="6">
               <div class="reply-form">
-                <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" />
+                <CommentForm :parentId="comment.id" @commentCreated="handleCommentCreated" ref="replyForm" />
               </div>
             </td>
           </tr>
@@ -190,6 +190,16 @@ export default {
           reply.parentId !== null &&
           Number(this.showReplyForm) === reply.parentId) {
         this.showReplyForm = null
+      }
+    },
+    showReplyForm(val) {
+      // Clear the reply form and reset submitting state when it's hidden (after successful submission or cancellation)
+      if (val === null && this.$refs.replyForm) {
+        this.$refs.replyForm.clearForm()
+        // Reset submitting state in case form was hidden during submission
+        if (this.$refs.replyForm.submitting !== undefined) {
+          this.$refs.replyForm.submitting = false
+        }
       }
     }
   },

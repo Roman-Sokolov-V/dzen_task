@@ -49,7 +49,11 @@
         v-if="token && showRootCommentForm"
         class="root-comment-form"
         @commentCreated="handleCommentCreated"
+        ref="commentForm"
       />
+      <div v-if="commentError" class="error">
+        {{ commentError }}
+      </div>
       <CommentList
         :comments="comments"
         :updateComment="updateCommentById"
@@ -190,7 +194,8 @@ export default {
       loginLoading: false,
       loginError: '',
       registerLoading: false,
-      registerError: ''
+      registerError: '',
+      commentError: ''
     }
   },
   computed: {
@@ -212,6 +217,18 @@ export default {
         return payload.username || payload.user_id || 'User'
       } catch (e) {
         return ''
+      }
+    }
+  },
+  watch: {
+    showRootCommentForm(val) {
+      // Clear the root comment form and reset submitting state when it's hidden (after successful submission or cancellation)
+      if (val === false && this.$refs.commentForm) {
+        this.$refs.commentForm.clearForm()
+        // Reset submitting state in case form was hidden during submission
+        if (this.$refs.commentForm.submitting !== undefined) {
+          this.$refs.commentForm.submitting = false
+        }
       }
     }
   },
@@ -490,6 +507,9 @@ export default {
     },
 
     handleCommentCreated(formData) {
+      // Clear any previous comment error
+      this.commentError = ''
+
       if (!this.token) {
         console.error('No token available')
         // Optionally, show a message to the user or redirect to login
@@ -504,11 +524,14 @@ export default {
         },
         body: formData
       })
-      .then(response => {
+      .then(async response => {
+        const data = await response.json();
         if (!response.ok) {
-          throw new Error('Network response was not ok')
+          // If backend returned a JSON error object, extract a message
+          const message = data.detail || data.message || JSON.stringify(data);
+          throw new Error(message);
         }
-        return response.json()
+        return data;
       })
       .then(data => {
         console.log('Comment created:', data)
@@ -518,10 +541,16 @@ export default {
         } else {
           this.showRootCommentForm = false
         }
+        // Clear the form on successful submission
+        if (this.$refs.commentForm) {
+          this.$refs.commentForm.clearForm()
+        }
         // The websocket will broadcast the creation, so we don't need to update the list here.
       })
       .catch(error => {
         console.error('Error creating comment:', error)
+        // Show user-friendly error message
+        this.commentError = error.message || 'Failed to create comment. Please try again.'
       })
     },
     handleLogin() {
