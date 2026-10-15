@@ -150,7 +150,7 @@ STORAGES = {
         "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
             "access_key": os.getenv("ACCESS_KEY"),
-            "secret_key": os.getenv("SECRET_KEY"),
+            "secret_key": os.getenv("STORAGE_SECRET_KEY"),
             "endpoint_url": os.getenv("ENDPOINT_URL"),
             "bucket_name": os.getenv("BUCKET_NAME", "media"),
             "region_name": os.getenv("REGION"),
