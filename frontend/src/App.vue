@@ -119,6 +119,10 @@
             <label>Confirm password:</label>
             <input type="password" v-model="register.password2" required autocomplete="new-password" />
           </div>
+          <div class="form-group">
+            <label>Avatar:</label>
+            <input type="file" accept="image/*" @change="onAvatarChange" ref="avatarInput" />
+          </div>
           <div class="form-group captcha-group">
             <label for="registration-captcha">{{ register.captchaQuestion || 'Loading CAPTCHA…' }}</label>
             <input
@@ -186,7 +190,8 @@ export default {
         password2: '',
         captchaKey: '',
         captchaQuestion: '',
-        captchaAnswer: ''
+        captchaAnswer: '',
+        avatar: null
       },
       captchaLoading: false,
       showLoginModal: false,
@@ -272,6 +277,10 @@ export default {
         .finally(() => {
           this.captchaLoading = false
         })
+    },
+    onAvatarChange(event) {
+      const file = event.target.files[0]
+      this.register.avatar = file || null
     },
     connectWebSocket() {
       // Connect to the websocket endpoint (relative URL, proxied by nginx)
@@ -639,18 +648,20 @@ export default {
       }
       this.registerLoading = true
       this.registerError = ''
+      const formData = new FormData()
+      formData.append('username', this.register.username)
+      formData.append('email', this.register.email)
+      formData.append('password', this.register.password)
+      formData.append('captcha_key', this.register.captchaKey)
+      formData.append('captcha_value', this.register.captchaAnswer)
+      if (this.register.avatar) {
+        formData.append('avatar', this.register.avatar)
+      }
+
       fetch('/api/user/register/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          username: this.register.username,
-          email: this.register.email,
-          password: this.register.password,
-          captcha_key: this.register.captchaKey,
-          captcha_value: this.register.captchaAnswer
-        })
+        // Do not set Content-Type; let the browser set it for multipart/form-data
+        body: formData
       })
       .then(response => {
         if (!response.ok) {
@@ -712,6 +723,12 @@ export default {
       this.register.captchaKey = ''
       this.register.captchaQuestion = ''
       this.register.captchaAnswer = ''
+      this.register.avatar = null
+      // Also reset the file input value to allow selecting the same file again
+      const fileInput = this.$refs.avatarInput
+      if (fileInput) {
+        fileInput.value = ''
+      }
     },
     getRegistrationErrorMessage(error) {
       if (error.detail) return error.detail
