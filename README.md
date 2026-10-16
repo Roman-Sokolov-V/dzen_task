@@ -152,6 +152,11 @@ dzen-task/
 ├── task.pdf                  # Original assignment
 └── db_schema.png             # Database schema diagram
 ```
+The database schema diagram is available in the project root: `db_schema.png`.
+
+## Video Presentation
+- Start: https://www.loom.com/share/73bfb016e7ca42c89d8a964171663dfa
+- End: https://www.loom.com/share/682a62def7fa410a9bffc9ebbdbef7cf
 
 ## Installation
 
