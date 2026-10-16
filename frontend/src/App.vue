@@ -153,6 +153,7 @@
 <script>
 import CommentList from './components/CommentList.vue'
 import CommentForm from './components/CommentForm.vue'
+import { fetchWithAuth } from './api.js'
 
 export default {
   name: 'App',
@@ -525,12 +526,8 @@ export default {
         return
       }
       // Send the new comment to the backend via REST API using multipart/form-data
-      fetch('/api/comments/', {
+      fetchWithAuth('/api/comments/', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.token}`
-          // Let the browser set the Content-Type for multipart/form-data
-        },
         body: formData
       })
       .then(async response => {
@@ -597,11 +594,7 @@ export default {
           userId = null
         }
         if (userId) {
-          fetch(`/api/user/${userId}/`, {
-            headers: {
-              'Authorization': `Bearer ${access}`
-            }
-          })
+          fetchWithAuth(`/api/user/${userId}/`)
           .then(resp => {
             if (!resp.ok) {
               throw new Error('Failed to fetch user profile')
