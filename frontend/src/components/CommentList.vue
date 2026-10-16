@@ -33,7 +33,10 @@
                     decoding="async"
                   />
                 </a>
-                <span>{{ comment.author }}</span>
+                <div class="author-details">
+                  <span class="author-name">{{ comment.author }}</span>
+                  <span v-if="comment.email" class="author-email">{{ comment.email }}</span>
+                </div>
               </div>
             </td>
             <td>{{ new Date(comment.created_at).toLocaleString() }}</td>
@@ -403,7 +406,7 @@ export default {
 }
 
 .comment-table th:nth-child(1) {
-  width: 12%;
+  width: 15%;
 }
 
 .comment-table th:nth-child(2) {
@@ -411,7 +414,7 @@ export default {
 }
 
 .comment-table th:nth-child(3) {
-  width: 35%;
+  width: 32%;
 }
 
 .comment-table th:nth-child(4),
@@ -434,7 +437,20 @@ export default {
   align-items: center;
   gap: 8px;
 }
-.comment-author span {
+.author-details {
+  display: flex;
+  flex-direction: column;
+}
+.author-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  font-weight: 600;
+}
+.author-email {
+  font-size: 0.875em;
+  color: #666;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

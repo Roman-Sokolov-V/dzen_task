@@ -214,6 +214,7 @@ class CommentActivitySerializer(serializers.ModelSerializer):
     """
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
+    email = serializers.EmailField(source="author.email", read_only=True)
     content = SafeCommentHTMLField(read_only=True)
     image = serializers.SerializerMethodField()
     file = serializers.SerializerMethodField()
@@ -221,7 +222,7 @@ class CommentActivitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "avatar", "content", "created_at", "image", "file", "parent", "root_id"]
+        fields = ["id", "author", "avatar", "email", "content", "created_at", "image", "file", "parent", "root_id"]
 
     def get_image(self, obj):
         if obj.image:

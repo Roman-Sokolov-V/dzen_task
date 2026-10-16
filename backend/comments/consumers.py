@@ -86,7 +86,9 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         # Відправляємо клієнту через вебсокет
         await self.send_json({
             "action": "initial_comments",
-            "data": serializer.data
+            "data": serializer.data,
+            "limit": limit,
+            "has_more": self.current_offset + len(paginated_list) < len(queryset_list),
         })
 
     # ==========================================

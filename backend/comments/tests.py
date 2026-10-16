@@ -1,4 +1,7 @@
 import tempfile
+from unittest.mock import AsyncMock
+
+from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
@@ -12,7 +15,8 @@ from comments.serializers import (
     CommentFlatSerializer,
     CommentRootListSerializer,
 )
-from comments.consumers import normalize_comment_ordering
+from comments.consumers import CommentConsumer, normalize_comment_ordering
+from rest_framework.settings import api_settings
 
 User = get_user_model()
 
@@ -184,6 +188,26 @@ class CommentTests(APITestCase):
         self.assertEqual(normalize_comment_ordering('author__username'), 'author__username')
         self.assertEqual(normalize_comment_ordering('created_at; DROP TABLE comments_comment'), '-created_at')
         self.assertEqual(normalize_comment_ordering(['created_at']), '-created_at')
+
+    def test_api_and_websocket_use_configured_page_size(self):
+        for index in range(api_settings.PAGE_SIZE + 1):
+            Comment.objects.create(author=self.user, content=f'Root {index}')
+
+        api_response = self.client.get(self.list_url)
+        self.assertEqual(len(api_response.data['results']), api_settings.PAGE_SIZE)
+
+        consumer = CommentConsumer()
+        consumer.current_ordering = '-created_at'
+        consumer.current_offset = 0
+        consumer.current_limit = None
+        consumer.send_json = AsyncMock()
+
+        async_to_sync(consumer.send_initial_comments)()
+
+        websocket_response = consumer.send_json.await_args.args[0]
+        self.assertEqual(len(websocket_response['data']), api_settings.PAGE_SIZE)
+        self.assertEqual(websocket_response['limit'], api_settings.PAGE_SIZE)
+        self.assertTrue(websocket_response['has_more'])
 
     def test_activity_serializer_includes_root_id_for_replies(self):
         self._authenticate(self.user)

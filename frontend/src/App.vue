@@ -171,7 +171,7 @@ export default {
       usernameFromStorage: '',
       // Pagination
       pageOffset: 0,
-      pageLimit: 5, // Default page size, should match backend PAGE_SIZE
+      pageLimit: null,
       loadingMore: false,
       hasMore: true,
       // Buffered new comments (arrived via WebSocket since last fetch)
@@ -313,8 +313,10 @@ export default {
       }
     },
     handleWebSocketMessage(data) {
-      const { action, data: commentData } = data
+      const { action, data: commentData, limit, has_more: hasMore } = data
       if (action === 'initial_comments') {
+        this.pageLimit = limit
+        this.hasMore = hasMore
         // Determine if this is first page or subsequent page based on offset sent
         // We don't have offset in message, so we rely on pageOffset in data.
         // If pageOffset is 0, replace; else append.
@@ -325,10 +327,6 @@ export default {
         } else {
           // Append new comments to existing list
           this.comments = [...this.comments, ...commentData]
-          // If we got fewer comments than limit, assume no more pages
-          if (commentData.length < this.pageLimit) {
-            this.hasMore = false
-          }
         }
         this.loadingMore = false
       } else if (action === 'create') {
@@ -379,13 +377,12 @@ export default {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({
           action: 'fetch_paginated_comments',
-          offset: offset,
-          limit: this.pageLimit
+          offset: offset
         }))
       }
     },
     loadNextPage() {
-      if (this.loadingMore || !this.hasMore) return
+      if (this.loadingMore || !this.hasMore || !this.pageLimit) return
       this.loadingMore = true
       const nextOffset = this.pageOffset + this.pageLimit
       this.fetchPage(nextOffset)

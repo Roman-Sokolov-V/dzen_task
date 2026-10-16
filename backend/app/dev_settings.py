@@ -30,9 +30,6 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-TESTING = (
-    ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
-)
 
 ALLOWED_HOSTS = []
 

@@ -20,3 +20,4 @@ TESTING = (
 )
 if TESTING:
     from .test_settings import *
+
