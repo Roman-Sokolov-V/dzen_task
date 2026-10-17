@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:reply": "node reply-flow.test.mjs",
-    "test:pagination": "node pagination.test.mjs"
+    "test:pagination": "node pagination.test.mjs",
+    "test": "npm run test:reply && npm run test:pagination"
   },
   "dependencies": {
     "vue": "^3.2.0"
