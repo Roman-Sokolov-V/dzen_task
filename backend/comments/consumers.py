@@ -11,7 +11,7 @@ from comments.models import Comment
 from comments.serializers import (
     CommentCreateSerializer,
     CommentRootListSerializer,
-    CommentActivitySerializer
+    CommentActivitySerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,15 +34,16 @@ def normalize_comment_ordering(ordering):
 
 class CommentConsumer(GenericAsyncAPIConsumer):
     """
-    Асинхронний WebSocket Consumer для управління коментарями в реальному часі.
-    Використовує бібліотеку djangochannelsrestframework (DCRF).
+    Asynchronous WebSocket Consumer for managing comments in real-time.
+    Uses the djangochannelsrestframework (DCRF) library.
     """
+
     permission_classes = [permissions.AllowAny]
 
     async def connect(self):
         """
-        Викликається автоматично щоразу, коли новий клієнт встановлює
-        WebSocket-з'єднання з сервером (наприклад, відкриває сторінку поста).
+        Called automatically whenever a new client establishes a
+        WebSocket connection with the server (e.g., opens a post page).
         """
         self.user = self.scope["user"]
         await self.accept()
@@ -50,85 +51,98 @@ class CommentConsumer(GenericAsyncAPIConsumer):
         # Initialize pagination and ordering state for this connection
         self.current_ordering = "-created_at"
         self.current_offset = 0
-        self.current_limit = None  # Will be set to PAGE_SIZE if None in send_initial_comments
+        self.current_limit = (
+            None  # Will be set to PAGE_SIZE if None in send_initial_comments
+        )
 
-        # Підписуємо клієнта на модельний обзервер для real-time оновлень
+        # Subscribe the client to the model observer for real-time updates
         await self.comment_activity.subscribe()
 
-        # Відправляємо початковий список кореневих коментарів
+        # Send the initial list of root comments
         await self.send_initial_comments()
 
     async def disconnect(self, close_code):
         """
-        Викликається, коли клієнт закриває сторінку або втрачає з'єднання.
+        Called when the client closes the page or loses the connection.
         """
         await self.comment_activity.unsubscribe()
 
     async def send_initial_comments(self):
         """
-        Завантажує та відправляє клієнту початковий список кореневих коментарів
-        з урахуванням поточного сортування та пагінації.
+        Loads and sends the client the initial list of root comments
+        considering the current sorting and pagination.
         """
-        # Імпортуємо налаштування DRF для отримання PAGE_SIZE
+        # Import DRF settings to get PAGE_SIZE
         from rest_framework.settings import api_settings
-        limit = self.current_limit if self.current_limit is not None else api_settings.PAGE_SIZE
 
-        # Витягуємо кореневі коментарі (parent=None) та сортуємо їх
-        queryset = Comment.objects.root_nodes().select_related("author").order_by(self.current_ordering)
+        limit = (
+            self.current_limit
+            if self.current_limit is not None
+            else api_settings.PAGE_SIZE
+        )
+
+        # Fetch root comments (parent=None) and apply ordering
+        queryset = (
+            Comment.objects.root_nodes()
+            .select_related("author")
+            .order_by(self.current_ordering)
+        )
         queryset_list = await database_sync_to_async(list)(queryset)
 
-        # Застосовуємо пагінацію
-        paginated_list = queryset_list[self.current_offset:self.current_offset + limit]
+        # Apply pagination
+        paginated_list = queryset_list[
+            self.current_offset : self.current_offset + limit
+        ]
 
-        # Серіалізуємо дані
+        # Serialize the data
         serializer = CommentRootListSerializer(paginated_list, many=True)
 
-        # Відправляємо клієнту через вебсокет
-        await self.send_json({
-            "action": "initial_comments",
-            "data": serializer.data,
-            "limit": limit,
-            "has_more": self.current_offset + len(paginated_list) < len(queryset_list),
-        })
+        # Send to client via websocket
+        await self.send_json(
+            {
+                "action": "initial_comments",
+                "data": serializer.data,
+                "limit": limit,
+                "has_more": self.current_offset + len(paginated_list)
+                < len(queryset_list),
+            }
+        )
 
     # ==========================================
-    # МОДЕЛЬНИЙ ОБЗЕРВЕР (REAL-TIME ОНОВЛЕННЯ)
+    # MODEL OBSERVER (REAL-TIME UPDATES)
     # ==========================================
     @model_observer(Comment)
     async def comment_activity(self, message, action, observer, **kwargs):
         """
-        Спрацьовує автоматично в реальному часі при CREATE, UPDATE, DELETE коментарів.
+        Triggered automatically in real-time on CREATE, UPDATE, DELETE of comments.
         """
-        await self.send_json({
-            "action": action,
-            "data": message
-        })
+        await self.send_json({"action": action, "data": message})
 
     @comment_activity.serializer
     def comment_activity_serialize(self, instance, action, **kwargs):
         """
-        Серіалізує об'єкт моделі Comment за допомогою CommentActivitySerializer.
+        Serializes the Comment model instance using CommentActivitySerializer.
         """
         return CommentActivitySerializer(instance).data
 
     # ==========================================
-    # ОБРОБКА ПОВІДОМЛЕНЬ ВІД КЛІЄНТА
+    # HANDLING MESSAGES FROM CLIENT
     # ==========================================
     async def receive_json(self, content, **kwargs):
         """
-        Обробляє вхідні дії від клієнта через WebSocket (створення коментаря, зміна сортування тощо).
+        Handles incoming actions from the client via WebSocket (creating a comment, changing sorting, etc.).
         """
         action = content.get("action")
 
         if action == "change_ordering":
-            # Дозволяємо клієнту перемикати сортування списку коренів "на льоту"
+            # Allow the client to switch the root comments sorting "on the fly"
             ordering = content.get("ordering", "-created_at")
             self.current_ordering = normalize_comment_ordering(ordering)
             self.current_offset = 0  # Reset offset to first page
             await self.send_initial_comments()
 
         elif action == "fetch_paginated_comments":
-            # Отримуємо параметри пагінації та сортування
+            # Get pagination and sorting parameters
             limit = content.get("limit", self.current_limit)
             offset = content.get("offset", self.current_offset)
             # Update stored pagination state
@@ -137,46 +151,52 @@ class CommentConsumer(GenericAsyncAPIConsumer):
             await self.send_initial_comments()
 
         elif action == "create_comment":
-            # Перевіряємо аутентифікацію
+            # Check authentication
             if not self.user.is_authenticated:
-                await self.send_json({
-                    "action": "error",
-                    "message": "Authentication required to create a comment."
-                })
+                await self.send_json(
+                    {
+                        "action": "error",
+                        "message": "Authentication required to create a comment.",
+                    }
+                )
                 return
 
-            # Валідація та збереження
+            # Validation and saving
             serializer = CommentCreateSerializer(data=content.get("data", {}))
 
             if serializer.is_valid():
-                comment = await database_sync_to_async(serializer.save)(author=self.user)
+                comment = await database_sync_to_async(serializer.save)(
+                    author=self.user
+                )
 
-                # Очищуємо кеш списків і дерев
+                # Clear comment lists and tree cache
                 await sync_to_async(self._invalidate_comment_tree_cache)(comment)
             else:
-                await self.send_json({
-                    "action": "error",
-                    "message": "Invalid data",
-                    "errors": serializer.errors
-                })
+                await self.send_json(
+                    {
+                        "action": "error",
+                        "message": "Invalid data",
+                        "errors": serializer.errors,
+                    }
+                )
 
         else:
             pass
 
     # ==========================================
-    # ЛОГІКА ІНВАЛІДАЦІЇ (СКИНУТЬ) КЕШУ
+    # CACHE INVALIDATION LOGIC
     # ==========================================
     def _invalidate_comment_tree_cache(self, comment):
         """
-        Очищує кеш у Redis при додаванні або зміні коментаря.
+        Clears the Redis cache when adding or modifying a comment.
         """
-        # 1. Скидаємо варіації кешу кореневих списків для основних сортувань - VIMED ЗА ВИМОГОЮ
+        # 1. Clear variations of the root list cache for the main orderings - VIMED PER REQUIREMENT
         # cache.delete("root_comments_list_-created_at")
         # cache.delete("root_comments_list_created_at")
 
-        # 2. Скидаємо кеш конкретного дерева гілки за його ID (сортування на нього не впливає)
+        # 2. Clear the cache for the specific comment tree by its ID (sorting does not affect it)
         cache.delete(f"comment_tree_{comment.id}")
 
-        # 3. Скидаємо кеш для всіх предків (ancestors) у MPTT-дереві
+        # 3. Clear the cache for all ancestors in the MPTT tree
         for ancestor in comment.get_ancestors():
             cache.delete(f"comment_tree_{ancestor.id}")
