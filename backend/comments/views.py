@@ -25,6 +25,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing comments.
     """
+
     queryset = Comment.objects.all()
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ("author__username", "created_at", "author__email")
@@ -88,11 +89,18 @@ class CommentViewSet(viewsets.ModelViewSet):
                 name="ordering",
                 description="Which field to use for ordering.",
                 type=str,
-                enum=["author__username", "-author__username", "created_at", "-created_at", "author__email", "-author__email"],
+                enum=[
+                    "author__username",
+                    "-author__username",
+                    "created_at",
+                    "-created_at",
+                    "author__email",
+                    "-author__email",
+                ],
                 required=False,
-            )
+            ),
         ],
-        description="Return a paginated list of root comments. Default ordering: -created_at (newest first)."
+        description="Return a paginated list of root comments. Default ordering: -created_at (newest first).",
     )
     def list(self, request, *args, **kwargs):
         """

@@ -35,6 +35,7 @@ class BasicCommentSerializer(serializers.ModelSerializer):
     Serializer for basic comment representation.
     Includes id, author, content, creation date, image, and file.
     """
+
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     content = SafeCommentHTMLField()
 
@@ -56,6 +57,7 @@ class CommentCreateSerializer(serializers.ModelSerializer):
     Serializer for creating a comment.
     Includes read-only fields for id and author (username).
     """
+
     id = serializers.IntegerField(read_only=True)
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
@@ -99,6 +101,7 @@ class CommentRootListSerializer(serializers.ModelSerializer):
     Serializer for listing root comments.
     Shows the author's username.
     """
+
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     email = serializers.EmailField(source="author.email", read_only=True)
@@ -106,8 +109,26 @@ class CommentRootListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "avatar", "email", "content", "image", "file", "created_at"]
-        read_only_fields = ["id", "author", "avatar", "email", "content", "image", "file", "created_at"]
+        fields = [
+            "id",
+            "author",
+            "avatar",
+            "email",
+            "content",
+            "image",
+            "file",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "author",
+            "avatar",
+            "email",
+            "content",
+            "image",
+            "file",
+            "created_at",
+        ]
 
 
 class CommentFlatSerializer(serializers.ModelSerializer):
@@ -115,6 +136,7 @@ class CommentFlatSerializer(serializers.ModelSerializer):
     Serializer for a flat comment representation used in trees.
     Includes author's username and reply count.
     """
+
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     content = SafeCommentHTMLField(read_only=True)
@@ -143,6 +165,7 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
     Серіалізатор для отримання дерева відповідей (нащадків) конкретного коментаря.
     Використовує кешування в Redis на рівні окремого ID коментаря.
     """
+
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     content = SafeCommentHTMLField(read_only=True)
@@ -207,11 +230,13 @@ class CommentWithDescendantsSerializer(serializers.ModelSerializer):
 
         return tree
 
+
 class CommentActivitySerializer(serializers.ModelSerializer):
     """
     Serializer for comment activity via WebSocket.
     Includes id, author, content, creation date, image, file, and parent.
     """
+
     author = serializers.SlugRelatedField(slug_field="username", read_only=True)
     avatar = serializers.ImageField(source="author.avatar", read_only=True)
     email = serializers.EmailField(source="author.email", read_only=True)
@@ -222,7 +247,18 @@ class CommentActivitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["id", "author", "avatar", "email", "content", "created_at", "image", "file", "parent", "root_id"]
+        fields = [
+            "id",
+            "author",
+            "avatar",
+            "email",
+            "content",
+            "created_at",
+            "image",
+            "file",
+            "parent",
+            "root_id",
+        ]
 
     def get_image(self, obj):
         if obj.image:

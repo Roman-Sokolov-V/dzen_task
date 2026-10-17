@@ -152,7 +152,10 @@ dzen-task/
 ├── task.pdf                  # Original assignment
 └── db_schema.png             # Database schema diagram
 ```
-The database schema diagram is available in the project root: `db_schema.png`.
+
+![db_schema](db_schema.png)
+![home page](ui_examples/home_page.png)
+![registration form](ui_examples/reg_form.png)
 
 ## Video Presentation
 - Start: https://www.loom.com/share/73bfb016e7ca42c89d8a964171663dfa
@@ -178,8 +181,18 @@ The database schema diagram is available in the project root: `db_schema.png`.
    cd backend
    # Install dependencies
    uv sync
-   # Create .env file (copy from sample.env or configure manually)
-   cp backend/sample.env backend/.env  # Adjust as needed
+   # Rename sample.env to .env and fill in the required environment variables
+   cp backend/sample.env backend/.env
+   ```
+   Before running the server, ensure you have edited `backend/.env` to set the required environment variables. The `.env` file is copied from `sample.env` which contains comments for each variable. At a minimum, you should set:
+   - `SECRET_KEY`: a strong secret key for Django cryptographic signing
+   - `DATABASE_URL`: the full PostgreSQL connection string (or set the individual Supabase variables: `HOST`, `PORT`, `DATABASE`, `USER`, `DATABASE_PASSWORD`)
+   - `REDIS_URL`: the Redis connection URL (e.g., `redis://localhost:6379/1` for local Redis, or `redis://redis:6379/1` when using Docker)
+   - Email variables (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`) if you want to enable email notifications
+   - Storage variables (`ENDPOINT_URL`, `REGION`, `ACCESS_KEY`, `STORAGE_SECRET_KEY`, `BUCKET_NAME`) if you want to use S3-compatible storage (like Supabase)
+
+   Then continue with the setup:
+   ```bash
    # Apply migrations
    uv run python manage.py migrate
    # Create superuser (optional)

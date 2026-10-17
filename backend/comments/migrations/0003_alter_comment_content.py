@@ -5,15 +5,17 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('comments', '0002_alter_comment_file_alter_comment_image'),
+        ("comments", "0002_alter_comment_file_alter_comment_image"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='comment',
-            name='content',
-            field=models.TextField(help_text='Comment with allowed HTML tags: <a>, <code>, <i>, <strong>', validators=[comments.validators.validate_html_tags]),
+            model_name="comment",
+            name="content",
+            field=models.TextField(
+                help_text="Comment with allowed HTML tags: <a>, <code>, <i>, <strong>",
+                validators=[comments.validators.validate_html_tags],
+            ),
         ),
     ]
