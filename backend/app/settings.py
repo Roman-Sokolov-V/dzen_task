@@ -10,14 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
-# import os
+import os
 import sys
-
-from .dev_settings import *
 
 TESTING = (
     ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
 )
-if TESTING:
+if not TESTING:
+    from .dev_settings import *
+
+else:
     from .test_settings import *
 

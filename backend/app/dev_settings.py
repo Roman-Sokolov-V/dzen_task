@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
-import sys
 from datetime import timedelta
 from pathlib import Path
 import dj_database_url
@@ -96,7 +95,7 @@ ASGI_APPLICATION = 'app.asgi.application'
 
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL"),
+        default=os.getenv("DATABASE_URL", None),
         conn_max_age=600,
         conn_health_checks=True,
     )
