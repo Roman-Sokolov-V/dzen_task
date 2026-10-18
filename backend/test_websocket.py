@@ -1,5 +1,4 @@
 import websocket
-import sys
 
 def on_message(ws, message):
     print(f"Received: {message}")

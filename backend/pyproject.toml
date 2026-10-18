@@ -26,4 +26,5 @@ dependencies = [
     "daphne>=4.0.0",
     "channels_redis>=4.0.0",
     "nh3>=0.3.7",
+    "websocket-client>=1.9.2",
 ]
