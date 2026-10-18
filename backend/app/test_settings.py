@@ -1,20 +1,15 @@
-import os
 from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+SECRET_KEY = "test_secret_key"
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
@@ -76,9 +71,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "app.wsgi.application"
 ASGI_APPLICATION = 'app.asgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
 
 DATABASES = {
     "default": {
@@ -87,9 +79,6 @@ DATABASES = {
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -106,10 +95,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.1/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -118,9 +103,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
@@ -140,22 +122,7 @@ MAX_IMAGE_WIDTH = 320
 MAX_IMAGE_HEIGHT = 240
 
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
-        "OPTIONS": {
-            "host": os.getenv("EMAIL_HOST"),
-            "port": int(os.getenv("EMAIL_PORT", 587)),
-            "username": os.getenv("EMAIL_HOST_USER"),
-            "password": os.getenv("EMAIL_HOST_PASSWORD"),
-            "use_tls": True,
-            "use_ssl": False,
-        },
-    },
-}
 DEFAULT_FROM_EMAIL = "DZEN task <noreply@dzen.task.com>"
 
 
@@ -170,34 +137,6 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        # Логер для SQL-запитів
-        "django.db.backends": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-        },
-        # ЗАГАЛЬНИЙ ЛОГЕР (logger = logging.getLogger(__name__))
-        "": {
-            "handlers": ["console"],
-            "level": "INFO",
-        },
-    },
-}
 
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -213,10 +152,9 @@ CACHES = {
 
 
 # Celery
-BROKER = (os.getenv("REDIS_URL", "redis://redis:6379/1"),)
 
 CELERY = {
-    "broker_url": BROKER,
+    "broker_url": "redis://redis:6379/1",
     "timezone": TIME_ZONE,
     "task_always_eager": True,
     "result_backend": "django-db",
@@ -239,56 +177,9 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-# Конфігурація Channel Layers (для продакшену рекомендується Redis)
+# Для тестування  InMemory: #
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [os.getenv("REDIS_URL", "redis://redis:6379/1")],
-        },
-    },
+'default': {
+'BACKEND': 'channels.layers.InMemoryChannelLayer',
+},
 }
-# Для локальної розробки/тестування без Redis можна використати InMemory: #
-# CHANNEL_LAYERS = {
-# 'default': {
-# 'BACKEND': 'channels.layers.InMemoryChannelLayer',
-# },
-# }
-
-
-# CORS Settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8080",
-]
-# Allow credentials (cookies, authorization headers)
-CORS_ALLOW_CREDENTIALS = True
-
-# Allow all headers (adjust as needed for security)
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
-
-# Allow all methods (adjust as needed)
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
