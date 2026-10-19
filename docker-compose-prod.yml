@@ -1,6 +1,9 @@
 services:
   web-app:
-    image: shabazzar/dzen_task-web-app:latest
+    image: dzen_task-web-app
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     entrypoint: ["./entrypoint.sh"]
@@ -25,7 +28,7 @@ services:
       retries: 5
 
   celery:
-    image: shabazzar/dzen_task-web-app:latest
+    image: dzen_task-web-app
     command: "celery -A app worker -l info --concurrency=1"
     env_file:
       - backend/.env
@@ -37,7 +40,10 @@ services:
     restart: on-failure
 
   frontend:
-    image: shabazzar/dzen_task-frontend:latest
+    image: dzen_task-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "8080:80" # Фронтенд буде доступний за адресою http://IP_СЕРВЕРА:8080
     depends_on:

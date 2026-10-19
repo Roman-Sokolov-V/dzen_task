@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 PRODUCTION = os.environ.get('PRODUCTION', 'False').lower() in ('true', '1')
 
@@ -27,3 +31,4 @@ else:
     else:
         from .test_settings import *
 
+from .prod_settings import *

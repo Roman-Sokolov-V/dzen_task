@@ -29,8 +29,7 @@ jobs:
           script: |
             cd ~/app/dzen_task
             
-            # ВИПРАВЛЕНО: Створюємо .env безпосередньо всередині папки backend, 
-            # оскільки ваш docker-compose-prod.yml очікує його саме там (backend/.env)
+ 
             mkdir -p backend
             echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env            
 
