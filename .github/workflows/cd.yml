@@ -10,15 +10,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Копіюємо код на сервер Zomro
-      - name: Copy code to Server via Rsync
-        uses: AEnterprise/rsync-deploy@v1.0.2
-        env:
-          DEPLOY_KEY: ${{ secrets.SSH_KEY }}
-          ARGS: "-avz --delete --exclude='.git*' --exclude='*.env'"
-          SERVER: ${{ secrets.SSH_HOST }}
-          USER: ${{ secrets.SSH_USER }}
-          FOLDER: "~/app/dzen_task/"
+      - name: Copy code to Zomro via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "./*"
+          target: "~/app/dzen_task/"
 
       # 2. Налаштовуємо оточення та запускаємо docker-compose-prod.yml
       - name: Run Application on Zomro
@@ -30,9 +29,10 @@ jobs:
           script: |
             cd ~/app/dzen_task
             
-            # Створюємо підпапку та генеруємо .env файл із секретів GitHub
+            # ВИПРАВЛЕНО: Створюємо .env безпосередньо всередині папки backend, 
+            # оскільки ваш docker-compose-prod.yml очікує його саме там (backend/.env)
             mkdir -p backend
-            echo "${{ secrets.PROD_ENV_FILE }}" > .env            
+            echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env            
 
             docker compose -f docker-compose-prod.yml up -d --build
             
