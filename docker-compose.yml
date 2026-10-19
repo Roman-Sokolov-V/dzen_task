@@ -1,8 +1,9 @@
 services:
   web-app:
     build:
-      context: backend
-    image: dzen_task-web-app:latest
+      context: ./backend
+      dockerfile: Dockerfile
+    image: dzen_task-web-app
     ports:
       - "8000:8000"
     entrypoint: ["./entrypoint.sh"]
@@ -27,7 +28,7 @@ services:
       retries: 5
 
   celery:
-    image: dzen_task-web-app:latest
+    image: dzen_task-web-app
     command: "celery -A app worker -l info"
     depends_on:
       - web-app
@@ -39,6 +40,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "8080:80"
     depends_on:
