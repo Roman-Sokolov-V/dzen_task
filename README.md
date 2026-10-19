@@ -21,6 +21,8 @@ A Django REST Framework API and Vue frontend for threaded comments, user account
 ## Overview
 Dzen Task is a full-stack commenting platform built with Django REST Framework (backend) and Vue 3 (frontend). It allows users to register, create threaded comments, attach files, and receive real-time updates. The project emphasizes security, performance, and scalability.
 
+The deployed project is accessible at [http://127.0.0.1:8080/](http://127.0.0.1:8080/) (on VPS via https://zomro.com/).
+
 ## Features
 - **User Management**: Registration with CAPTCHA, JWT authentication, profile management (homepage, avatar)
 - **Commenting System**: Hierarchical comments (using django-mptt), real-time updates via WebSocket, file attachments (images and text files with validation and resizing)
