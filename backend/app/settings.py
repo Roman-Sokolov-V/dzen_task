@@ -13,12 +13,17 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 import sys
 
-TESTING = (
-    ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
-)
-if not TESTING:
-    from .dev_settings import *
+PRODUCTION = os.environ.get('PRODUCTION', 'False').lower() in ('true', '1')
 
+if PRODUCTION:
+    from .prod_settings import *
 else:
-    from .test_settings import *
+    TESTING = (
+        ("test" in sys.argv) or ("test_coverage" in sys.argv) or ("pytest" in sys.modules)
+    )
+    if not TESTING:
+        from .dev_settings import *
+
+    else:
+        from .test_settings import *
 

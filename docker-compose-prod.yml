@@ -1,0 +1,47 @@
+services:
+  web-app:
+    image: shabazzar/dzen_task-web-app:latest
+    ports:
+      - "8000:8000"
+    entrypoint: ["./entrypoint.sh"]
+    env_file:
+      - .env
+    environment:
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+      PRODUCTION: "true"
+    restart: always
+
+  redis:
+    image: redis:8.8.3-alpine3.23
+    restart: always
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  celery:
+    image: shabazzar/dzen_task-web-app:latest
+    command: "celery -A app worker -l info --concurrency=1"
+    depends_on:
+      web-app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+  frontend:
+    image: shabazzar/dzen_task-frontend:latest
+    ports:
+      - "8080:80" # Фронтенд буде доступний за адресою http://IP_СЕРВЕРА:8080
+    depends_on:
+      - web-app
+    restart: always
+
+volumes:
+  cache:
+    driver: local

@@ -1,0 +1,39 @@
+name: Deploy dzen_task to Zomro (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Копіюємо код на сервер Zomro
+      - name: Copy code to Server via Rsync
+        uses: AEnterprise/rsync-deploy@v1.0.2
+        env:
+          DEPLOY_KEY: ${{ secrets.SSH_KEY }}
+          ARGS: "-avz --delete --exclude='.git*' --exclude='*.env'"
+          SERVER: ${{ secrets.SSH_HOST }}
+          USER: ${{ secrets.SSH_USER }}
+          FOLDER: "~/app/dzen_task/"
+
+      # 2. Налаштовуємо оточення та запускаємо docker-compose-prod.yml
+      - name: Run Application on Zomro
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/app/dzen_task
+            
+            # Створюємо підпапку та генеруємо .env файл із секретів GitHub
+            mkdir -p backend
+            echo "${{ secrets.PROD_ENV_FILE }}" > .env            
+
+            docker compose -f docker-compose-prod.yml up -d --build
+            
+            docker system prune -f
