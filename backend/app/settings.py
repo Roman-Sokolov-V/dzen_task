@@ -30,5 +30,3 @@ else:
 
     else:
         from .test_settings import *
-
-from .prod_settings import *
